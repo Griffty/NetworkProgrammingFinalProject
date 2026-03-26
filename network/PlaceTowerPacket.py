@@ -5,9 +5,9 @@ from network.packets import Packet, PacketId
 
 @dataclass(slots=True)
 class PlaceTowerPacket(Packet):
-    x: int
-    y: int
     tower_type: str
+    tile_x: int
+    tile_y: int
 
     @classmethod
     def version(cls) -> int:
@@ -17,13 +17,13 @@ class PlaceTowerPacket(Packet):
     def packet_id(cls) -> PacketId:
         return PacketId("PLACE_TOWER")
 
-    def to_payload(self) -> dict[str, int | str]:
-        return {"x": self.x, "y": self.y, "tower_type": self.tower_type}
+    def to_payload(self) -> dict:
+        return {"tower_type": self.tower_type, "tile_x": self.tile_x, "tile_y": self.tile_y}
 
     @classmethod
-    def from_payload(cls, payload: dict[str, int | str]) -> "PlaceTowerPacket":
+    def from_payload(cls, payload: dict) -> "PlaceTowerPacket":
         return cls(
-            x=int(payload["x"]),
-            y=int(payload["y"]),
             tower_type=str(payload["tower_type"]),
+            tile_x=int(payload["tile_x"]),
+            tile_y=int(payload["tile_y"]),
         )

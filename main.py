@@ -42,6 +42,13 @@ def build_parser() -> argparse.ArgumentParser:
     gui_parser.add_argument("--player2", default="Player2")
     gui_parser.add_argument("--auto-quit-seconds", type=float)
 
+    play_parser = subparsers.add_parser(
+        "play", help="Connect to a server and play with pygame"
+    )
+    play_parser.add_argument("--host", default=DEFAULT_HOST)
+    play_parser.add_argument("--port", default=DEFAULT_PORT, type=int)
+    play_parser.add_argument("--name", default="Player1")
+
     return parser
 
 
@@ -106,6 +113,21 @@ def run_gui(player1: str, player2: str, auto_quit_seconds: float | None) -> None
     viewer.run()
 
 
+def run_play(host: str, port: int, name: str) -> None:
+    try:
+        from client.pygame_network_client import PygameNetworkClient
+    except ModuleNotFoundError as error:
+        if error.name == "pygame":
+            raise SystemExit(
+                "pygame is not installed for this interpreter. "
+                "Use the project venv, for example: .venv/bin/python main.py play"
+            ) from error
+        raise
+
+    client = PygameNetworkClient(host=host, port=port, player_name=name)
+    client.run()
+
+
 def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
@@ -118,6 +140,8 @@ def main() -> None:
         run_simulation(args.seconds, args.player1, args.player2)
     elif args.mode == "gui":
         run_gui(args.player1, args.player2, args.auto_quit_seconds)
+    elif args.mode == "play":
+        run_play(args.host, args.port, args.name)
     else:
         run_local_test(args.host, args.port, args.name)
 
