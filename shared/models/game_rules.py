@@ -59,19 +59,6 @@ class EnemyDefinition:
 
 
 @dataclass(frozen=True, slots=True)
-class TowerDefinition:
-    tower_type: TowerKind
-    cost: int
-    range_tiles: float
-    damage: float
-    shots_per_second: float
-    upgrade_costs: tuple[int, int]
-    max_level: int = 3
-    splash_radius: float = 0.0
-    penetrates: bool = False
-
-
-@dataclass(frozen=True, slots=True)
 class OffensiveModifierDefinition:
     modifier: OffensiveModifier
     cost: int
@@ -106,35 +93,6 @@ ENEMY_DEFINITIONS: dict[EnemyKind, EnemyDefinition] = {
         speed_tiles_per_second=2.2,
         leak_damage=3,
         kill_reward=4,
-    ),
-}
-
-TOWER_DEFINITIONS: dict[TowerKind, TowerDefinition] = {
-    TowerKind.MINIGUN: TowerDefinition(
-        tower_type=TowerKind.MINIGUN,
-        cost=35,
-        range_tiles=5.0,
-        damage=4.0,
-        shots_per_second=5.0,
-        upgrade_costs=(25, 40),
-    ),
-    TowerKind.RAILGUN: TowerDefinition(
-        tower_type=TowerKind.RAILGUN,
-        cost=60,
-        range_tiles=12.0,
-        damage=35.0,
-        shots_per_second=0.7,
-        upgrade_costs=(45, 65),
-        penetrates=True,
-    ),
-    TowerKind.PULSE: TowerDefinition(
-        tower_type=TowerKind.PULSE,
-        cost=50,
-        range_tiles=7.0,
-        damage=14.0,
-        shots_per_second=1.2,
-        upgrade_costs=(35, 55),
-        splash_radius=1.5,
     ),
 }
 

@@ -4,8 +4,8 @@ from network.packets import Packet, PacketId
 
 
 @dataclass(slots=True)
-class WelcomePacket(Packet):
-    message: str
+class JoinRejectedPacket(Packet):
+    reason: str
 
     @classmethod
     def version(cls) -> int:
@@ -13,11 +13,11 @@ class WelcomePacket(Packet):
 
     @classmethod
     def packet_id(cls) -> PacketId:
-        return PacketId("WELCOME")
+        return PacketId("JOIN_REJECTED")
 
     def to_payload(self) -> dict[str, str]:
-        return {"message": self.message}
+        return {"reason": self.reason}
 
     @classmethod
-    def from_payload(cls, payload: dict[str, str]) -> "WelcomePacket":
-        return cls(message=str(payload["message"]))
+    def from_payload(cls, payload: dict[str, str]) -> "JoinRejectedPacket":
+        return cls(reason=str(payload["reason"]))

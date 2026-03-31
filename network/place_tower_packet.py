@@ -18,7 +18,11 @@ class PlaceTowerPacket(Packet):
         return PacketId("PLACE_TOWER")
 
     def to_payload(self) -> dict:
-        return {"tower_type": self.tower_type, "tile_x": self.tile_x, "tile_y": self.tile_y}
+        return {
+            "tower_type": self.tower_type,
+            "tile_x": self.tile_x,
+            "tile_y": self.tile_y,
+        }
 
     @classmethod
     def from_payload(cls, payload: dict) -> "PlaceTowerPacket":
