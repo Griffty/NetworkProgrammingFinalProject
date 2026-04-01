@@ -103,8 +103,9 @@ class PygameClient:
             player_name=action.player_name,
         )
         if not candidate.connect():
+            error_message = candidate.connect_error_message.strip()
             self.lobby_view.set_status(
-                f"Failed to connect to {action.host}:{action.port}.",
+                error_message or f"Failed to connect to {action.host}:{action.port}.",
                 self.lobby_view.error_color,
             )
             return

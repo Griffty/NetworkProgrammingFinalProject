@@ -115,7 +115,9 @@ class GameServer:
         if self._has_started_match():
             PacketCodec.send(
                 client_socket,
-                JoinRejectedPacket(reason="Match already in progress. Try again later."),
+                JoinRejectedPacket(
+                    reason="Server is full and already running a match. Try again later."
+                ),
             )
             return None
 
@@ -123,7 +125,9 @@ class GameServer:
         if connection is None:
             PacketCodec.send(
                 client_socket,
-                JoinRejectedPacket(reason="Server is full. Try again later."),
+                JoinRejectedPacket(
+                    reason="Server lobby is full. Match is about to start. Try again later."
+                ),
             )
             return None
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import socket
 import threading
 from dataclasses import dataclass, field
 
@@ -35,6 +36,7 @@ class ClientSessionState:
     game_over_is_draw: bool = False
     connected: bool = False
     welcome_message: str = ""
+    connect_error_message: str = ""
 
 
 class GameClient:
@@ -64,7 +66,8 @@ class GameClient:
 
     def connect(self) -> bool:
         if self._connect_attempted:
-            print("Reconnect is disabled. Restart the client to join again.")
+            self._set_connect_error("Reconnect is disabled. Return to lobby and connect again.")
+            print(self.connect_error_message)
             return False
 
         self._connect_attempted = True
@@ -76,7 +79,9 @@ class GameClient:
 
             response = self._connection.receive()
             if isinstance(response, JoinRejectedPacket):
-                print(f"Connection rejected: {response.reason}")
+                reason = self._normalize_reject_reason(response.reason)
+                self._set_connect_error(reason)
+                print(f"Connection rejected: {reason}")
                 self.disconnect()
                 return False
 
@@ -97,7 +102,9 @@ class GameClient:
             return True
 
         except (ConnectionError, OSError, TimeoutError, ValueError) as error:
-            print(f"Failed to connect: {error}")
+            message = self._format_connect_error(error)
+            self._set_connect_error(message)
+            print(f"Failed to connect: {message}")
             self.disconnect()
             return False
 
@@ -224,6 +231,11 @@ class GameClient:
         with self._state_lock:
             return self.session.game_over_is_draw
 
+    @property
+    def connect_error_message(self) -> str:
+        with self._state_lock:
+            return self.session.connect_error_message
+
     def _reset_session(self) -> None:
         with self._state_lock:
             self.session = ClientSessionState()
@@ -298,3 +310,46 @@ class GameClient:
     def _set_connected(self, connected: bool) -> None:
         with self._state_lock:
             self.session.connected = connected
+
+    def _set_connect_error(self, message: str) -> None:
+        with self._state_lock:
+            self.session.connect_error_message = message
+
+    @staticmethod
+    def _normalize_reject_reason(reason: str) -> str:
+        lowered = reason.lower()
+        if "already running" in lowered or "in progress" in lowered:
+            return "Server is full and already running a match. Try again later."
+        if "server is full" in lowered:
+            return "Server lobby is full. Try again later."
+        return reason
+
+    @staticmethod
+    def _format_connect_error(error: Exception) -> str:
+        if isinstance(error, socket.gaierror):
+            return "Could not resolve server address. Check IP/hostname."
+
+        if isinstance(error, (TimeoutError, socket.timeout)):
+            return "Connection timed out. Server did not respond."
+
+        if isinstance(error, ConnectionRefusedError):
+            return "Connection refused. Server is offline or port is closed."
+
+        if isinstance(error, OSError):
+            if error.errno == 1:
+                return "Connection blocked by OS or firewall permissions."
+            if error.errno in {101, 113}:
+                return "Network is unreachable. Check internet/VPN routing."
+            if error.errno == 111:
+                return "Connection refused. Server is offline or port is closed."
+
+        if isinstance(error, ValueError):
+            return (
+                "Protocol mismatch with server. "
+                "Make sure both client and server use the same build."
+            )
+
+        if isinstance(error, ConnectionError):
+            return "Connection was closed during handshake."
+
+        return f"Connection failed: {error}"
