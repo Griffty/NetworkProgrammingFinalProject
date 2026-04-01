@@ -8,7 +8,7 @@ from shared.models.state import EnemyState, TowerState
 
 class RailgunTower(AbstractTower):
     tower_kind = TowerKind.RAILGUN
-    cost = 60
+    cost = 80
     upgrade_costs = (45, 65)
     presentation = TowerPresentation(color=(242, 214, 84), shape="triangle")
 
@@ -16,7 +16,7 @@ class RailgunTower(AbstractTower):
         return 12.0 + (1.0 * (tower.level - 1))
 
     def damage(self, tower: TowerState) -> float:
-        return 35.0 * (1.0 + (0.45 * (tower.level - 1)))
+        return 20.0 * (1.0 + (0.4 * (tower.level - 1)))
 
     def shots_per_second(self, tower: TowerState) -> float:
         return 0.7 * (1.0 + (0.10 * (tower.level - 1)))

@@ -139,6 +139,8 @@ class PygameClientView:
         pygame.K_x: OffensiveModifier.HASTE,
         pygame.K_c: OffensiveModifier.REINFORCEMENTS,
     }
+    _PRESSURE_UNIT_CONTROLS_TOP_OFFSET = 74
+    _PRESSURE_MODIFIER_CONTROLS_TOP_OFFSET = 114
 
     def __init__(self) -> None:
         self.selected_tower = TowerKind.MINIGUN
@@ -699,8 +701,8 @@ class PygameClientView:
 
         pressure = player.outgoing_pressure
         controls_enabled = state.phase == MatchPhase.BUILD
-        unit_controls_top = panel.top + 74
-        modifier_controls_top = unit_controls_top
+        unit_controls_top = panel.top + self._PRESSURE_UNIT_CONTROLS_TOP_OFFSET
+        modifier_controls_top = panel.top + self._PRESSURE_MODIFIER_CONTROLS_TOP_OFFSET
 
         for index, enemy_kind in enumerate(self._PRESSURE_UNIT_ORDER):
             minus_rect, count_rect, plus_rect = self._pressure_unit_control_rects(
@@ -819,8 +821,8 @@ class PygameClientView:
         if not panel.collidepoint(mouse_position):
             return None
 
-        unit_controls_top = panel.top + 64
-        modifier_controls_top = panel.top + 114
+        unit_controls_top = panel.top + self._PRESSURE_UNIT_CONTROLS_TOP_OFFSET
+        modifier_controls_top = panel.top + self._PRESSURE_MODIFIER_CONTROLS_TOP_OFFSET
 
         for index, enemy_kind in enumerate(self._PRESSURE_UNIT_ORDER):
             minus_rect, _, plus_rect = self._pressure_unit_control_rects(
@@ -1035,12 +1037,14 @@ class PygameClientView:
             return None
 
         base_width, base_height = self.base_window_size
-        scale = viewport.width / base_width
-        if scale <= 0:
+        scale_x = viewport.width / base_width
+        scale_y = viewport.height / base_height
+        if scale_x <= 0 or scale_y <= 0:
             return None
 
-        virtual_x = int((screen_position[0] - viewport.left) / scale)
-        virtual_y = int((screen_position[1] - viewport.top) / scale)
+        # Round to nearest virtual pixel and map each axis independently.
+        virtual_x = int(round((screen_position[0] - viewport.left) / scale_x))
+        virtual_y = int(round((screen_position[1] - viewport.top) / scale_y))
         virtual_x = max(0, min(base_width - 1, virtual_x))
         virtual_y = max(0, min(base_height - 1, virtual_y))
         return virtual_x, virtual_y

@@ -105,18 +105,6 @@ class WaveService:
 
         base_counts = base_wave_definition.counts_map()
         wave.base_unit_counts = base_counts.copy()
-        for enemy_kind in base_wave_definition.enemy_sequence:
-            wave.queued_enemies.append(
-                self._create_enemy(
-                    enemy_kind=enemy_kind,
-                    wave_number=wave_number,
-                    defending_player_id=player_id,
-                    reward_player_id=attacker_id,
-                    board_layout=board_layout,
-                    hp_multiplier=1.0,
-                    speed_multiplier=1.0,
-                )
-            )
 
         hp_multiplier = 1.0
         speed_multiplier = 1.0
@@ -126,6 +114,19 @@ class WaveService:
             hp_multiplier *= modifier_definition.hp_multiplier
             speed_multiplier *= modifier_definition.speed_multiplier
             extra_modifier_points += modifier_definition.extra_modifier_points
+
+        for enemy_kind in base_wave_definition.enemy_sequence:
+            wave.queued_enemies.append(
+                self._create_enemy(
+                    enemy_kind=enemy_kind,
+                    wave_number=wave_number,
+                    defending_player_id=player_id,
+                    reward_player_id=attacker_id,
+                    board_layout=board_layout,
+                    hp_multiplier=hp_multiplier,
+                    speed_multiplier=speed_multiplier,
+                )
+            )
 
         wave.modifier_budget += extra_modifier_points
         wave.added_unit_counts = pressure_plan.unit_counts.copy()
