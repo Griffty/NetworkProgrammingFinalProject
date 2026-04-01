@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 
-from shared.models import GAME_RULES, MatchPhase, PlayerState
+from shared.models.game_rules import GAME_RULES, MatchPhase
+from shared.models.state import PlayerState
 
 
 @dataclass(slots=True)

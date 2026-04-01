@@ -1,13 +1,45 @@
-import socket
+from __future__ import annotations
 
-from network import register_packets
+import threading
+from dataclasses import dataclass, field
+
+from client.socket_connection import SocketConnection
+from game.match_state import MatchState
+from network.configure_pressure_packet import ConfigurePressurePacket
+from network.disconnect_packet import DisconnectPacket
+from network.error_packet import ErrorPacket
+from network.game_over_packet import GameOverPacket
+from network.game_start_packet import GameStartPacket
+from network.game_state_packet import GameStatePacket
 from network.hello_packet import HelloPacket
-from network.packets import PacketCodec
-from network.welcome_packet import WelcomePacket
+from network.join_rejected_packet import JoinRejectedPacket
+from network.place_tower_packet import PlaceTowerPacket
+from network.register_packets import register_packets
+from network.sell_tower_packet import SellTowerPacket
+from network.skip_build_packet import SkipBuildPacket
+from network.upgrade_tower_packet import UpgradeTowerPacket
+from network.join_accepted_packet import JoinAcceptedPacket
+from shared.models.game_rules import EnemyKind, OffensiveModifier, TowerKind
+from shared.serialization import deserialize_match_state
 from shared.settings import DEFAULT_HOST, DEFAULT_PORT, SOCKET_TIMEOUT_SECONDS
 
 
+@dataclass(slots=True)
+class ClientSessionState:
+    player_id: str | None = None
+    opponent_name: str | None = None
+    match_state: MatchState | None = None
+    error_messages: list[str] = field(default_factory=list)
+    game_over: bool = False
+    game_over_winner: str | None = None
+    game_over_is_draw: bool = False
+    connected: bool = False
+    welcome_message: str = ""
+
+
 class GameClient:
+    _MAX_ERROR_MESSAGES = 10
+
     def __init__(
         self,
         host: str = DEFAULT_HOST,
@@ -19,18 +51,250 @@ class GameClient:
         self.port = port
         self.player_name = player_name
 
-    def connect(self) -> str:
-        with socket.create_connection(
-            (self.host, self.port), timeout=SOCKET_TIMEOUT_SECONDS
-        ) as client_socket:
-            client_socket.settimeout(SOCKET_TIMEOUT_SECONDS)
-            PacketCodec.send(client_socket, HelloPacket(player_name=self.player_name))
-            response = PacketCodec.recv(client_socket)
+        self.session = ClientSessionState()
+        self._connection = SocketConnection(
+            host=host,
+            port=port,
+            timeout_seconds=SOCKET_TIMEOUT_SECONDS,
+        )
+        self._recv_thread: threading.Thread | None = None
+        self._state_lock = threading.Lock()
+        self._ready_event = threading.Event()
+        self._connect_attempted = False
 
-        if not isinstance(response, WelcomePacket):
-            raise ValueError(
-                f"Expected welcome packet, received {response.packet_id()!r} instead."
+    def connect(self) -> bool:
+        if self._connect_attempted:
+            print("Reconnect is disabled. Restart the client to join again.")
+            return False
+
+        self._connect_attempted = True
+        self._reset_session()
+
+        try:
+            self._connection.open()
+            self._connection.send(HelloPacket(player_name=self.player_name))
+
+            response = self._connection.receive()
+            if isinstance(response, JoinRejectedPacket):
+                print(f"Connection rejected: {response.reason}")
+                self.disconnect()
+                return False
+
+            if not isinstance(response, JoinAcceptedPacket):
+                raise ValueError(
+                    "Expected join-accepted or join-rejected packet, "
+                    f"received {response.packet_id()!r}."
+                )
+
+            self._handle_welcome(response)
+            self._set_connected(True)
+
+            print(f"Server: {self.welcome_message}")
+
+            self._connection.set_timeout(None)
+            self._recv_thread = threading.Thread(target=self._receive_loop, daemon=True)
+            self._recv_thread.start()
+            return True
+
+        except (ConnectionError, OSError, TimeoutError, ValueError) as error:
+            print(f"Failed to connect: {error}")
+            self.disconnect()
+            return False
+
+    def disconnect(self) -> None:
+        if self._connection.is_open:
+            try:
+                self._connection.send(DisconnectPacket())
+            except (ConnectionError, OSError):
+                pass
+        self._set_connected(False)
+        self._ready_event.set()
+        self._connection.close()
+
+    def wait_until_ready(self, timeout: float = 120.0) -> bool:
+        if self.player_id is not None:
+            return True
+
+        if not self.is_connected:
+            print("Disconnected while waiting.")
+            return False
+
+        if not self._ready_event.wait(timeout):
+            print("Timed out waiting for match to start.")
+            return False
+
+        if not self.is_connected:
+            print("Disconnected while waiting.")
+            return False
+
+        return self.player_id is not None
+
+    def place_tower(self, tower_type: TowerKind, tile_x: int, tile_y: int) -> None:
+        self._send(PlaceTowerPacket(tower_type=tower_type.value, tile_x=tile_x, tile_y=tile_y))
+
+    def upgrade_tower(self, tower_id: int) -> None:
+        self._send(UpgradeTowerPacket(tower_id=tower_id))
+
+    def sell_tower(self, tower_id: int) -> None:
+        self._send(SellTowerPacket(tower_id=tower_id))
+
+    def sell_tower_at(self, tile_x: int, tile_y: int) -> None:
+        match_state = self.match_state
+        player_id = self.player_id
+        if match_state is None or player_id is None:
+            raise ValueError("Player state is not ready yet.")
+
+        player = match_state.players.get(player_id)
+        if player is None:
+            raise ValueError("Could not find your player state.")
+
+        tower_id = next(
+            (
+                tower.tower_id
+                for tower in player.towers.values()
+                if tower.tile_x == tile_x and tower.tile_y == tile_y
+            ),
+            None,
+        )
+        if tower_id is None:
+            raise ValueError("No tower on that tile to sell.")
+
+        self.sell_tower(tower_id)
+
+    def configure_pressure(
+        self,
+        unit_counts: dict[EnemyKind, int],
+        modifiers: set[OffensiveModifier] | None = None,
+    ) -> None:
+        counts = {kind.value: count for kind, count in unit_counts.items()}
+        modifier_values = [modifier.value for modifier in (modifiers or set())]
+        self._send(
+            ConfigurePressurePacket(
+                unit_counts=counts,
+                modifiers=modifier_values,
             )
+        )
 
-        print(f"Server response: {response.message}")
-        return response.message
+    def skip_build(self) -> None:
+        self._send(SkipBuildPacket())
+
+    def pop_errors(self) -> list[str]:
+        with self._state_lock:
+            errors = list(self.session.error_messages)
+            self.session.error_messages.clear()
+            return errors
+
+    @property
+    def player_id(self) -> str | None:
+        with self._state_lock:
+            return self.session.player_id
+
+    @property
+    def opponent_name(self) -> str | None:
+        with self._state_lock:
+            return self.session.opponent_name
+
+    @property
+    def match_state(self) -> MatchState | None:
+        with self._state_lock:
+            return self.session.match_state
+
+    @property
+    def is_connected(self) -> bool:
+        with self._state_lock:
+            return self.session.connected
+
+    @property
+    def welcome_message(self) -> str:
+        with self._state_lock:
+            return self.session.welcome_message
+
+    @property
+    def game_over(self) -> bool:
+        with self._state_lock:
+            return self.session.game_over
+
+    @property
+    def game_over_winner(self) -> str | None:
+        with self._state_lock:
+            return self.session.game_over_winner
+
+    @property
+    def game_over_is_draw(self) -> bool:
+        with self._state_lock:
+            return self.session.game_over_is_draw
+
+    def _reset_session(self) -> None:
+        with self._state_lock:
+            self.session = ClientSessionState()
+        self._ready_event.clear()
+
+    def _send(self, packet: object) -> None:
+        if not self._connection.is_open:
+            return
+
+        try:
+            self._connection.send(packet)
+        except (ConnectionError, OSError):
+            self.disconnect()
+
+    def _receive_loop(self) -> None:
+        while self.is_connected and self._connection.is_open:
+            try:
+                self._handle_packet(self._connection.receive())
+            except (ConnectionError, OSError):
+                break
+            except Exception as error:
+                print(f"Error in receive loop: {error}")
+                break
+
+        self.disconnect()
+
+    def _handle_packet(self, packet: object) -> None:
+        if isinstance(packet, GameStartPacket):
+            self._handle_game_start(packet)
+        elif isinstance(packet, GameStatePacket):
+            self._handle_game_state(packet)
+        elif isinstance(packet, GameOverPacket):
+            self._handle_game_over(packet)
+        elif isinstance(packet, ErrorPacket):
+            self._handle_error(packet)
+        elif isinstance(packet, JoinAcceptedPacket):
+            self._handle_welcome(packet)
+
+    def _handle_game_start(self, packet: GameStartPacket) -> None:
+        with self._state_lock:
+            self.session.player_id = packet.your_player_id
+            self.session.opponent_name = packet.opponent_name
+        self._ready_event.set()
+        print(
+            f"Match started! You are {packet.your_player_id}, opponent: {packet.opponent_name}"
+        )
+
+    def _handle_game_state(self, packet: GameStatePacket) -> None:
+        match_state = deserialize_match_state(packet.state)
+        with self._state_lock:
+            self.session.match_state = match_state
+
+    def _handle_game_over(self, packet: GameOverPacket) -> None:
+        with self._state_lock:
+            self.session.game_over = True
+            self.session.game_over_winner = packet.winner_player_id or None
+            self.session.game_over_is_draw = packet.is_draw
+        print(f"Game over! Winner: {packet.winner_player_id}, Draw: {packet.is_draw}")
+
+    def _handle_error(self, packet: ErrorPacket) -> None:
+        with self._state_lock:
+            self.session.error_messages.append(packet.message)
+            if len(self.session.error_messages) > self._MAX_ERROR_MESSAGES:
+                self.session.error_messages = self.session.error_messages[
+                    -self._MAX_ERROR_MESSAGES :
+                ]
+
+    def _handle_welcome(self, packet: JoinAcceptedPacket) -> None:
+        with self._state_lock:
+            self.session.welcome_message = packet.message
+
+    def _set_connected(self, connected: bool) -> None:
+        with self._state_lock:
+            self.session.connected = connected
