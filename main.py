@@ -15,7 +15,6 @@ def build_parser() -> argparse.ArgumentParser:
     client_parser = subparsers.add_parser("client", help="Run the pygame client")
     client_parser.add_argument("--host", default=DEFAULT_HOST)
     client_parser.add_argument("--port", default=DEFAULT_PORT, type=int)
-    client_parser.add_argument("--name", default="Player1")
 
     return parser
 
@@ -28,7 +27,7 @@ def run_server(host: str, port: int) -> None:
         server.stop()
 
 
-def run_client(host: str, port: int, name: str) -> None:
+def run_client(host: str, port: int) -> None:
     try:
         from client.pygame_client import PygameClient
     except ModuleNotFoundError as error:
@@ -39,7 +38,7 @@ def run_client(host: str, port: int, name: str) -> None:
             ) from error
         raise
 
-    client = PygameClient(host=host, port=port, player_name=name)
+    client = PygameClient(host=host, port=port)
     client.run()
 
 
@@ -50,7 +49,7 @@ def main() -> None:
     if args.mode == "server":
         run_server(args.host, args.port)
     elif args.mode == "client":
-        run_client(args.host, args.port, args.name)
+        run_client(args.host, args.port)
     else:
         raise ValueError(f"Unsupported mode: {args.mode}")
 

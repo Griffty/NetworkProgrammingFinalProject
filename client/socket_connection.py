@@ -42,6 +42,10 @@ class SocketConnection:
         if self._socket is None:
             return
         try:
+            self._socket.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
+        try:
             self._socket.close()
         except OSError:
             pass

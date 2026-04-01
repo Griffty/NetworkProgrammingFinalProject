@@ -13,11 +13,13 @@ Color = tuple[int, int, int]
 class ConnectAction:
     host: str
     port: int
+    player_name: str
 
 
 @dataclass(frozen=True, slots=True)
 class LobbyLayout:
     panel_rect: pygame.Rect
+    name_field_rect: pygame.Rect
     host_field_rect: pygame.Rect
     port_field_rect: pygame.Rect
     connect_button_rect: pygame.Rect
@@ -43,12 +45,12 @@ class PygameLobbyView:
         default_port: int,
         player_name: str,
     ) -> None:
+        self.name_text = player_name
         self.host_text = default_host
         self.port_text = str(default_port)
-        self.player_name = player_name
 
-        self.active_field = "host"
-        self.status_message = "Enter IP/port and press Connect."
+        self.active_field = "name"
+        self.status_message = "Enter name, IP/port and press Connect."
         self.status_color = self._SUBTEXT
         self.window_size = (960, 680)
 
@@ -98,7 +100,12 @@ class PygameLobbyView:
                     return False, None
 
                 if event.key == pygame.K_TAB:
-                    self.active_field = "port" if self.active_field == "host" else "host"
+                    if self.active_field == "name":
+                        self.active_field = "host"
+                    elif self.active_field == "host":
+                        self.active_field = "port"
+                    else:
+                        self.active_field = "name"
                     continue
 
                 if event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
@@ -109,7 +116,9 @@ class PygameLobbyView:
                 continue
 
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                if layout.host_field_rect.collidepoint(event.pos):
+                if layout.name_field_rect.collidepoint(event.pos):
+                    self.active_field = "name"
+                elif layout.host_field_rect.collidepoint(event.pos):
                     self.active_field = "host"
                 elif layout.port_field_rect.collidepoint(event.pos):
                     self.active_field = "port"
@@ -144,10 +153,12 @@ class PygameLobbyView:
         title_y = layout.panel_rect.top + 24
         screen.blit(title_surface, (title_x, title_y))
 
-        subtitle = f"Player name: {self.player_name}"
+        subtitle = "Prepare your commander and connect to server"
+        screen.blit(small_font.render(subtitle, True, self._SUBTEXT), (title_x, title_y + 56))
+
         screen.blit(
-            small_font.render(subtitle, True, self._SUBTEXT),
-            (title_x, title_y + 56),
+            font.render("Name", True, self._TEXT),
+            (layout.name_field_rect.left, layout.name_field_rect.top - 30),
         )
 
         screen.blit(
@@ -159,6 +170,7 @@ class PygameLobbyView:
             (layout.port_field_rect.left, layout.port_field_rect.top - 30),
         )
 
+        self._draw_input(screen, layout.name_field_rect, self.name_text, self.active_field == "name")
         self._draw_input(screen, layout.host_field_rect, self.host_text, self.active_field == "host")
         self._draw_input(screen, layout.port_field_rect, self.port_text, self.active_field == "port")
 
@@ -225,13 +237,17 @@ class PygameLobbyView:
             height - (panel_margin_y * 2),
         )
 
-        input_top = panel_rect.top + 150
-        host_field_rect = pygame.Rect(panel_rect.left + 28, input_top, 430, 46)
-        port_field_rect = pygame.Rect(host_field_rect.right + 18, input_top, 140, 46)
-        connect_button_rect = pygame.Rect(port_field_rect.right + 18, input_top, 170, 46)
+        name_top = panel_rect.top + 150
+        name_field_rect = pygame.Rect(panel_rect.left + 28, name_top, 280, 46)
+
+        connection_top = name_top + 84
+        host_field_rect = pygame.Rect(panel_rect.left + 28, connection_top, 430, 46)
+        port_field_rect = pygame.Rect(host_field_rect.right + 18, connection_top, 140, 46)
+        connect_button_rect = pygame.Rect(port_field_rect.right + 18, connection_top, 170, 46)
 
         return LobbyLayout(
             panel_rect=panel_rect,
+            name_field_rect=name_field_rect,
             host_field_rect=host_field_rect,
             port_field_rect=port_field_rect,
             connect_button_rect=connect_button_rect,
@@ -257,7 +273,9 @@ class PygameLobbyView:
 
     def _handle_key_input(self, event: pygame.event.Event) -> None:
         if event.key == pygame.K_BACKSPACE:
-            if self.active_field == "host":
+            if self.active_field == "name":
+                self.name_text = self.name_text[:-1]
+            elif self.active_field == "host":
                 self.host_text = self.host_text[:-1]
             else:
                 self.port_text = self.port_text[:-1]
@@ -267,6 +285,11 @@ class PygameLobbyView:
             return
 
         char = event.unicode
+        if self.active_field == "name":
+            if len(self.name_text) < 20:
+                self.name_text += char
+            return
+
         if self.active_field == "host":
             if char.isspace():
                 return
@@ -278,8 +301,13 @@ class PygameLobbyView:
             self.port_text += char
 
     def _try_build_connect_action(self) -> ConnectAction | None:
+        player_name = self.name_text.strip()
         host = self.host_text.strip()
         port_text = self.port_text.strip()
+
+        if not player_name:
+            self.set_status("Player name cannot be empty.", self._ERROR)
+            return None
 
         if not host:
             self.set_status("Host/IP cannot be empty.", self._ERROR)
@@ -295,7 +323,7 @@ class PygameLobbyView:
             return None
 
         self.set_status("Connecting...", self._WAITING)
-        return ConnectAction(host=host, port=port)
+        return ConnectAction(host=host, port=port, player_name=player_name)
 
     def _rules_lines(self) -> tuple[str, ...]:
         return (

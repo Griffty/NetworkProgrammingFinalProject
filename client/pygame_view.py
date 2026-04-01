@@ -94,6 +94,13 @@ class PygameClientView:
     _ERROR = (214, 88, 88)
     _SUCCESS = (98, 200, 134)
     _WAITING = (210, 179, 94)
+    _OVERLAY_SCRIM = (8, 12, 18, 178)
+    _OVERLAY_PANEL = (20, 30, 40)
+    _OVERLAY_BORDER = (68, 96, 122)
+    _OVERLAY_BUTTON = (54, 110, 170)
+    _OVERLAY_BUTTON_HOVER = (75, 136, 196)
+    _OVERLAY_DANGER = (118, 62, 62)
+    _OVERLAY_DANGER_HOVER = (148, 78, 78)
     _ENEMY_COLORS = {
         "runner": (244, 105, 105),
         "brute": (222, 143, 66),
@@ -283,6 +290,7 @@ class PygameClientView:
         player_name: str,
         my_player_id: str | None,
         state: MatchState | None,
+        match_end_state: tuple[str, str] | None = None,
     ) -> None:
         assert self._screen is not None
         assert self._scene_surface is not None
@@ -303,20 +311,58 @@ class PygameClientView:
                 fonts.title,
                 self._WAITING,
             )
-            self._present_scene(scene, screen)
-            return
+        else:
+            self._draw_header(scene, state, player_name, my_player_id, fonts)
 
-        self._draw_header(scene, state, player_name, my_player_id, fonts)
+            player_1 = state.players.get("player_1")
+            player_2 = state.players.get("player_2")
+            if player_1 is not None:
+                self._draw_board(scene, self.left_board, player_1, my_player_id, fonts)
+            if player_2 is not None:
+                self._draw_board(scene, self.right_board, player_2, my_player_id, fonts)
+            self._draw_pressure_panel(scene, state, my_player_id, fonts)
 
-        player_1 = state.players.get("player_1")
-        player_2 = state.players.get("player_2")
-        if player_1 is not None:
-            self._draw_board(scene, self.left_board, player_1, my_player_id, fonts)
-        if player_2 is not None:
-            self._draw_board(scene, self.right_board, player_2, my_player_id, fonts)
-        self._draw_pressure_panel(scene, state, my_player_id, fonts)
+        if match_end_state is not None:
+            self._draw_match_end_overlay(
+                scene=scene,
+                title=match_end_state[0],
+                detail=match_end_state[1],
+                fonts=fonts,
+            )
 
         self._present_scene(scene, screen)
+
+    def handle_post_match_events(self) -> tuple[bool, bool]:
+        play_again = False
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return False, False
+
+            if event.type == pygame.VIDEORESIZE:
+                self.window_size = (event.w, event.h)
+                current_screen = pygame.display.get_surface()
+                if current_screen is not None:
+                    self._screen = current_screen
+                continue
+
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    return False, False
+                if event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                    play_again = True
+
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                virtual_mouse = self._screen_to_virtual(event.pos)
+                if virtual_mouse is None:
+                    continue
+
+                if self._overlay_play_again_button_rect().collidepoint(virtual_mouse):
+                    play_again = True
+                elif self._overlay_exit_button_rect().collidepoint(virtual_mouse):
+                    return False, False
+
+        return True, play_again
 
     def set_status(self, message: str, color: Color) -> None:
         self.status_message = message
@@ -998,3 +1044,104 @@ class PygameClientView:
         virtual_x = max(0, min(base_width - 1, virtual_x))
         virtual_y = max(0, min(base_height - 1, virtual_y))
         return virtual_x, virtual_y
+
+    def _draw_match_end_overlay(
+        self,
+        scene: pygame.Surface,
+        title: str,
+        detail: str,
+        fonts: UiFonts,
+    ) -> None:
+        overlay = pygame.Surface(self.base_window_size, pygame.SRCALPHA)
+        overlay.fill(self._OVERLAY_SCRIM)
+        scene.blit(overlay, (0, 0))
+
+        panel_rect = self._overlay_panel_rect()
+        pygame.draw.rect(scene, self._OVERLAY_PANEL, panel_rect, border_radius=14)
+        pygame.draw.rect(scene, self._OVERLAY_BORDER, panel_rect, width=2, border_radius=14)
+
+        title_surface = fonts.title.render(title, True, self._TEXT)
+        scene.blit(
+            title_surface,
+            (
+                panel_rect.centerx - (title_surface.get_width() // 2),
+                panel_rect.top + 28,
+            ),
+        )
+
+        detail_surface = fonts.body.render(detail, True, self._SUBTEXT)
+        scene.blit(
+            detail_surface,
+            (
+                panel_rect.centerx - (detail_surface.get_width() // 2),
+                panel_rect.top + 92,
+            ),
+        )
+
+        hint_surface = fonts.small.render(
+            "Press Enter or click Play Again to return to lobby",
+            True,
+            self._SUBTEXT,
+        )
+        scene.blit(
+            hint_surface,
+            (
+                panel_rect.centerx - (hint_surface.get_width() // 2),
+                panel_rect.top + 122,
+            ),
+        )
+
+        mouse_position = self._screen_to_virtual(pygame.mouse.get_pos())
+        play_rect = self._overlay_play_again_button_rect()
+        exit_rect = self._overlay_exit_button_rect()
+        play_hovered = mouse_position is not None and play_rect.collidepoint(mouse_position)
+        exit_hovered = mouse_position is not None and exit_rect.collidepoint(mouse_position)
+
+        self._draw_overlay_button(
+            scene=scene,
+            rect=play_rect,
+            label="Play Again",
+            font=fonts.body,
+            fill_color=self._OVERLAY_BUTTON_HOVER if play_hovered else self._OVERLAY_BUTTON,
+        )
+        self._draw_overlay_button(
+            scene=scene,
+            rect=exit_rect,
+            label="Exit",
+            font=fonts.body,
+            fill_color=self._OVERLAY_DANGER_HOVER if exit_hovered else self._OVERLAY_DANGER,
+        )
+
+    def _overlay_panel_rect(self) -> pygame.Rect:
+        width = 560
+        height = 230
+        left = (self.base_window_size[0] - width) // 2
+        top = (self.base_window_size[1] - height) // 2
+        return pygame.Rect(left, top, width, height)
+
+    def _overlay_play_again_button_rect(self) -> pygame.Rect:
+        panel = self._overlay_panel_rect()
+        return pygame.Rect(panel.left + 86, panel.bottom - 62, 176, 40)
+
+    def _overlay_exit_button_rect(self) -> pygame.Rect:
+        panel = self._overlay_panel_rect()
+        return pygame.Rect(panel.right - 86 - 176, panel.bottom - 62, 176, 40)
+
+    @staticmethod
+    def _draw_overlay_button(
+        scene: pygame.Surface,
+        rect: pygame.Rect,
+        label: str,
+        font: pygame.font.Font,
+        fill_color: Color,
+    ) -> None:
+        pygame.draw.rect(scene, fill_color, rect, border_radius=8)
+        pygame.draw.rect(scene, (212, 222, 232), rect, width=1, border_radius=8)
+        text_surface = font.render(label, True, (235, 240, 245))
+        scene.blit(
+            text_surface,
+            (
+                rect.centerx - (text_surface.get_width() // 2),
+                rect.centery - (text_surface.get_height() // 2),
+            ),
+        )

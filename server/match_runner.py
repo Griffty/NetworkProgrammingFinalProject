@@ -19,10 +19,12 @@ class MatchRunner:
         player_names: list[str],
         broadcaster: Callable[[object], None],
         send_error: Callable[[str, str], None],
+        on_match_finished: Callable[[], None] | None = None,
     ) -> None:
         self._engine = MatchEngine(player_names=player_names)
         self._broadcast = broadcaster
         self._send_error = send_error
+        self._on_match_finished = on_match_finished
         self._command_queue: queue.Queue[tuple[str, GameCommand]] = queue.Queue()
         self._state_lock = threading.Lock()
         self._game_thread: threading.Thread | None = None
@@ -85,6 +87,8 @@ class MatchRunner:
                 )
             )
             print("Match finished.")
+            if self._on_match_finished is not None:
+                self._on_match_finished()
 
     def _drain_commands(self) -> None:
         while True:

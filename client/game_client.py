@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from client.socket_connection import SocketConnection
 from game.match_state import MatchState
 from network.configure_pressure_packet import ConfigurePressurePacket
+from network.disconnect_packet import DisconnectPacket
 from network.error_packet import ErrorPacket
 from network.game_over_packet import GameOverPacket
 from network.game_start_packet import GameStartPacket
@@ -101,6 +102,11 @@ class GameClient:
             return False
 
     def disconnect(self) -> None:
+        if self._connection.is_open:
+            try:
+                self._connection.send(DisconnectPacket())
+            except (ConnectionError, OSError):
+                pass
         self._set_connected(False)
         self._ready_event.set()
         self._connection.close()
@@ -202,6 +208,21 @@ class GameClient:
     def welcome_message(self) -> str:
         with self._state_lock:
             return self.session.welcome_message
+
+    @property
+    def game_over(self) -> bool:
+        with self._state_lock:
+            return self.session.game_over
+
+    @property
+    def game_over_winner(self) -> str | None:
+        with self._state_lock:
+            return self.session.game_over_winner
+
+    @property
+    def game_over_is_draw(self) -> bool:
+        with self._state_lock:
+            return self.session.game_over_is_draw
 
     def _reset_session(self) -> None:
         with self._state_lock:

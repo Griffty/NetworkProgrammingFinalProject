@@ -6,6 +6,7 @@ import threading
 from network.error_packet import ErrorPacket
 from network.game_start_packet import GameStartPacket
 from network.hello_packet import HelloPacket
+from network.disconnect_packet import DisconnectPacket
 from network.join_rejected_packet import JoinRejectedPacket
 from network.register_packets import register_packets
 from network.packets import PacketCodec
@@ -64,6 +65,7 @@ class GameServer:
 
     def stop(self) -> None:
         self._running.clear()
+        self._lobby.close_all_and_clear()
         if self._socket is not None:
             try:
                 self._socket.close()
@@ -148,6 +150,7 @@ class GameServer:
                 player_names=self._lobby.player_names_for_match(),
                 broadcaster=self._lobby.broadcast,
                 send_error=self._send_error,
+                on_match_finished=self._handle_match_finished,
             )
             match_runner = self._match_runner
 
@@ -167,6 +170,8 @@ class GameServer:
         while self._running.is_set():
             try:
                 packet = PacketCodec.recv(client_socket)
+                if isinstance(packet, DisconnectPacket):
+                    break
                 self._queue_command(player_id, packet)
             except (ConnectionError, OSError):
                 break
@@ -201,6 +206,13 @@ class GameServer:
         match_runner = self._match_runner
         if match_runner is not None:
             match_runner.finish_due_to_disconnect(remaining_player_ids)
+
+    def _handle_match_finished(self) -> None:
+        with self._server_lock:
+            self._match_runner = None
+
+        self._lobby.close_all_and_clear()
+        print("Match reset. Waiting for players...")
 
     def _has_started_match(self) -> bool:
         with self._server_lock:

@@ -11,12 +11,12 @@ from client.pygame_view import (
     SellTowerAction,
     TogglePressureModifierAction,
 )
+from game.match_state import MatchState
 from shared.models.game_rules import MatchPhase
 
 
 class PygameClient:
-    def __init__(self, host: str, port: int, player_name: str) -> None:
-        self.player_name = player_name
+    def __init__(self, host: str, port: int, player_name: str = "Player1") -> None:
         self.default_host = host
         self.default_port = port
         self.network_client: GameClient | None = None
@@ -28,20 +28,24 @@ class PygameClient:
         self.view = PygameClientView()
 
     def run(self) -> None:
-        if not self._run_lobby():
-            return
+        while True:
+            if not self._run_lobby():
+                return
 
-        assert self.network_client is not None
-        self.lobby_view.close()
-        self.view.open(
-            player_name=self.network_client.player_name,
-            my_player_id=self.network_client.player_id,
-        )
-        try:
-            self._run_main_loop()
-        finally:
-            self.view.close()
-            self._disconnect_network_client()
+            assert self.network_client is not None
+            self.lobby_view.close()
+            self.view.open(
+                player_name=self.network_client.player_name,
+                my_player_id=self.network_client.player_id,
+            )
+            try:
+                go_back_to_lobby = self._run_main_loop()
+            finally:
+                self.view.close()
+                self._disconnect_network_client()
+
+            if not go_back_to_lobby:
+                return
 
     def _run_lobby(self) -> bool:
         self.lobby_view.open()
@@ -83,12 +87,20 @@ class PygameClient:
         return False
 
     def _attempt_connect(self, action: ConnectAction) -> None:
+        if self.network_client is not None and self.network_client.is_connected:
+            self._disconnect_network_client()
+            self.lobby_view.set_status(
+                "Disconnected active session. Press Connect to join again.",
+                self.lobby_view.waiting_color,
+            )
+            return
+
         self._disconnect_network_client()
 
         candidate = GameClient(
             host=action.host,
             port=action.port,
-            player_name=self.player_name,
+            player_name=action.player_name,
         )
         if not candidate.connect():
             self.lobby_view.set_status(
@@ -103,25 +115,51 @@ class PygameClient:
             self.lobby_view.success_color,
         )
 
-    def _run_main_loop(self) -> None:
+    def _run_main_loop(self) -> bool:
         assert self.network_client is not None
         running = True
+        last_state: MatchState | None = None
 
-        while running and self.network_client.is_connected:
+        while running:
             frame_seconds = self.view.next_frame()
             self.view.update(frame_seconds)
             self._flush_network_errors()
 
+            state = self.network_client.match_state
+            if state is not None:
+                last_state = state
+
+            match_end_state = self._resolve_match_end_state(last_state)
+            if match_end_state is not None:
+                running, play_again = self.view.handle_post_match_events()
+                self.view.render(
+                    player_name=self.network_client.player_name,
+                    my_player_id=self.network_client.player_id,
+                    state=last_state,
+                    match_end_state=match_end_state,
+                )
+                if not running:
+                    return False
+                if play_again:
+                    return True
+                continue
+
             running, actions = self.view.handle_events(
-                state=self.network_client.match_state,
+                state=state,
                 my_player_id=self.network_client.player_id,
             )
-            self._apply_actions(actions)
+            if not running:
+                return False
+
+            if self.network_client.is_connected:
+                self._apply_actions(actions)
             self.view.render(
                 player_name=self.network_client.player_name,
                 my_player_id=self.network_client.player_id,
-                state=self.network_client.match_state,
+                state=state,
             )
+
+        return False
 
     def _flush_network_errors(self) -> None:
         for error in self.network_client.pop_errors():
@@ -190,3 +228,38 @@ class PygameClient:
             return
         self.network_client.disconnect()
         self.network_client = None
+
+    def _resolve_match_end_state(
+        self,
+        last_state: MatchState | None,
+    ) -> tuple[str, str] | None:
+        assert self.network_client is not None
+
+        is_finished = self.network_client.game_over
+        winner_player_id = self.network_client.game_over_winner
+        is_draw = self.network_client.game_over_is_draw
+
+        if last_state is not None and last_state.phase == MatchPhase.FINISHED:
+            is_finished = True
+            winner_player_id = winner_player_id or last_state.winner_player_id
+            is_draw = is_draw or last_state.is_draw
+
+        if is_finished:
+            if is_draw:
+                return ("Draw", "Match ended in a draw. Play again?")
+
+            if winner_player_id is not None and last_state is not None:
+                winner_player = last_state.players.get(winner_player_id)
+                winner_name = winner_player.name if winner_player is not None else winner_player_id
+            else:
+                winner_name = winner_player_id or "Unknown"
+
+            if winner_player_id == self.network_client.player_id:
+                return ("You Win", "You won the match. Play again?")
+
+            return ("You Lose", f"{winner_name} won the match. Play again?")
+
+        if not self.network_client.is_connected:
+            return ("Disconnected", "Connection closed. Return to lobby?")
+
+        return None

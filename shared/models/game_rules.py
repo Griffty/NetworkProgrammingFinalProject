@@ -1,6 +1,12 @@
 import math
 from dataclasses import dataclass
-from enum import StrEnum
+from enum import Enum
+
+try:
+    from enum import StrEnum
+except ImportError:
+    class StrEnum(str, Enum):
+        pass
 
 
 class MatchPhase(StrEnum):
@@ -37,7 +43,7 @@ class GameRules:
     starting_lives: int = 25
     build_phase_seconds: float = 20.0
     sell_refund_ratio: float = 0.70
-    tick_rate_hz: int = 10
+    tick_rate_hz: int = 20
     max_players: int = 2
     spawn_interval_seconds: float = 0.35
     base_wave_points: int = 30

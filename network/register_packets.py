@@ -1,4 +1,5 @@
 from network.configure_pressure_packet import ConfigurePressurePacket
+from network.disconnect_packet import DisconnectPacket
 from network.error_packet import ErrorPacket
 from network.game_over_packet import GameOverPacket
 from network.game_start_packet import GameStartPacket
@@ -23,6 +24,7 @@ def register_packets() -> None:
         SellTowerPacket,
         ConfigurePressurePacket,
         SkipBuildPacket,
+        DisconnectPacket,
         GameStartPacket,
         GameStatePacket,
         GameOverPacket,

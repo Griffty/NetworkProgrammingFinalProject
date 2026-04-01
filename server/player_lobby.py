@@ -86,6 +86,24 @@ class PlayerLobby:
         for player_id in self.player_ids():
             self.send_to_player(player_id, packet)
 
+    def close_all_and_clear(self) -> list[str]:
+        with self._lock:
+            player_ids = self._ordered_player_ids_locked()
+            connections = list(self._connections.values())
+            self._connections = {}
+
+        for connection in connections:
+            try:
+                connection.socket.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
+            try:
+                connection.socket.close()
+            except OSError:
+                pass
+
+        return player_ids
+
     def _get_connection(self, player_id: str) -> PlayerConnection | None:
         with self._lock:
             return self._connections.get(player_id)
