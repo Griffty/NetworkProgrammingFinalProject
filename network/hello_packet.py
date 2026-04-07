@@ -1,3 +1,5 @@
+"""Client-to-server handshake packet carrying the chosen player name."""
+
 from dataclasses import dataclass
 
 from network.packets import Packet, PacketId
@@ -5,6 +7,8 @@ from network.packets import Packet, PacketId
 
 @dataclass(slots=True)
 class HelloPacket(Packet):
+    """Initial packet sent by a client when connecting."""
+
     player_name: str
 
     @classmethod

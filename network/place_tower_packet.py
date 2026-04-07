@@ -1,3 +1,5 @@
+"""Client command packet for placing a tower on the board."""
+
 from dataclasses import dataclass
 
 from network.packets import Packet, PacketId
@@ -5,6 +7,8 @@ from network.packets import Packet, PacketId
 
 @dataclass(slots=True)
 class PlaceTowerPacket(Packet):
+    """Request to place a tower at a tile position."""
+
     tower_type: str
     tile_x: int
     tile_y: int

@@ -1,3 +1,5 @@
+"""Fast, cheap single-target tower definition."""
+
 from collections.abc import Sequence
 
 from game.towers.abstract_tower import AbstractTower, TowerPresentation
@@ -6,6 +8,8 @@ from shared.models.state import EnemyState, TowerState
 
 
 class MinigunTower(AbstractTower):
+    """Rapid-fire single-target tower with short range."""
+
     tower_kind = TowerKind.MINIGUN
     cost = 35
     upgrade_costs = (25, 40)

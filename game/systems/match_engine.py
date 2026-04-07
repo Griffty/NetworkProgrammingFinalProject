@@ -1,3 +1,5 @@
+"""High-level coordinator that routes commands across game services."""
+
 import math
 from itertools import count
 from typing import Sequence
@@ -27,6 +29,8 @@ from shared.models.state import OutgoingPressureState, PlayerState, TowerState
 
 
 class MatchEngine:
+    """Own match state and delegate logic to specialized services."""
+
     def __init__(
         self,
         player_names: Sequence[str] | None = None,
@@ -60,6 +64,8 @@ class MatchEngine:
             self.add_player(player_id=f"player_{index}", player_name=player_name)
 
     def add_player(self, player_id: str, player_name: str) -> PlayerState:
+        """Add a player to the match and start build phase if ready."""
+
         player = self._build_service.add_player(self.state, player_id, player_name)
 
         if self.state.phase == MatchPhase.WAITING_FOR_PLAYERS and self.state.can_start():
@@ -70,6 +76,8 @@ class MatchEngine:
     def place_tower(
         self, player_id: str, tower_type: TowerKind, tile_x: int, tile_y: int
     ) -> TowerState:
+        """Place a tower during build phase."""
+
         self._require_phase(MatchPhase.BUILD)
         return self._build_service.place_tower(
             self.state,
@@ -80,6 +88,8 @@ class MatchEngine:
         )
 
     def upgrade_tower(self, player_id: str, tower_id: int) -> TowerState:
+        """Upgrade a tower during build phase."""
+
         self._require_phase(MatchPhase.BUILD)
         return self._build_service.upgrade_tower(
             self.state,
@@ -88,6 +98,8 @@ class MatchEngine:
         )
 
     def sell_tower(self, player_id: str, tower_id: int) -> int:
+        """Sell a tower during build phase."""
+
         self._require_phase(MatchPhase.BUILD)
         return self._build_service.sell_tower(self.state, player_id, tower_id)
 
@@ -97,6 +109,8 @@ class MatchEngine:
         unit_counts: dict[EnemyKind, int],
         modifiers: set[OffensiveModifier] | None = None,
     ) -> OutgoingPressureState:
+        """Update outgoing pressure during build phase."""
+
         self._require_phase(MatchPhase.BUILD)
         return self._pressure_service.configure_pressure(
             self.state,
@@ -106,6 +120,8 @@ class MatchEngine:
         )
 
     def apply_command(self, player_id: str, command: GameCommand) -> None:
+        """Dispatch a command object to the appropriate engine operation."""
+
         if isinstance(command, PlaceTowerCommand):
             self.place_tower(
                 player_id,
@@ -134,6 +150,8 @@ class MatchEngine:
         raise ValueError(f"Unsupported command: {type(command).__name__}")
 
     def skip_build(self, player_id: str) -> None:
+        """Mark a player as ready and advance if both players are ready."""
+
         player = self.state.players.get(player_id)
         if player is None:
             raise ValueError(f"Unknown player id: {player_id}")
@@ -152,6 +170,8 @@ class MatchEngine:
             self.advance(self.state.phase_time_remaining_seconds)
 
     def finish_due_to_disconnect(self, connected_player_ids: list[str]) -> None:
+        """Resolve the match immediately after one or more disconnects."""
+
         if self.state.phase == MatchPhase.FINISHED:
             return
 
@@ -183,6 +203,8 @@ class MatchEngine:
         )
 
     def tick(self, steps: int = 1) -> MatchState:
+        """Advance the simulation by a number of fixed ticks."""
+
         if steps < 1:
             raise ValueError("Tick steps must be at least 1.")
 
@@ -214,6 +236,8 @@ class MatchEngine:
         return self.state
 
     def advance(self, seconds: float) -> MatchState:
+        """Advance the simulation by an approximate amount of wall time."""
+
         if seconds < 0:
             raise ValueError("Advance duration cannot be negative.")
 
@@ -223,9 +247,13 @@ class MatchEngine:
         return self.tick(steps)
 
     def _start_next_wave(self) -> None:
+        """Delegate next-wave creation to the wave service."""
+
         self._wave_service.start_next_wave(self.state)
 
     def _require_phase(self, expected_phase: MatchPhase) -> None:
+        """Raise if an action is attempted outside the required phase."""
+
         if self.state.phase != expected_phase:
             raise ValueError(
                 f"Action is only allowed during {expected_phase.value}, "

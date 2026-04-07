@@ -1,3 +1,5 @@
+"""Client command packet for editing the next outgoing pressure plan."""
+
 from dataclasses import dataclass, field
 
 from network.packets import Packet, PacketId
@@ -5,6 +7,8 @@ from network.packets import Packet, PacketId
 
 @dataclass(slots=True)
 class ConfigurePressurePacket(Packet):
+    """Carries extra unit counts and selected pressure modifiers."""
+
     unit_counts: dict[str, int]
     modifiers: list[str]
 

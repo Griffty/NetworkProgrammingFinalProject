@@ -1,3 +1,5 @@
+"""Shared game rules, enums, and balance values used by both client and server."""
+
 import math
 from dataclasses import dataclass
 from enum import Enum
@@ -10,6 +12,8 @@ except ImportError:
 
 
 class MatchPhase(StrEnum):
+    """High-level phases of a match."""
+
     WAITING_FOR_PLAYERS = "waiting_for_players"
     BUILD = "build"
     WAVE = "wave"
@@ -17,18 +21,24 @@ class MatchPhase(StrEnum):
 
 
 class EnemyKind(StrEnum):
+    """Enemy types currently available in waves and pressure plans."""
+
     RUNNER = "runner"
     BRUTE = "brute"
     GUARD = "guard"
 
 
 class TowerKind(StrEnum):
+    """Tower types supported by the current prototype."""
+
     MINIGUN = "minigun"
     RAILGUN = "railgun"
     PULSE = "pulse"
 
 
 class OffensiveModifier(StrEnum):
+    """Wave modifiers a player can apply to outgoing pressure."""
+
     REINFORCE = "reinforce"
     HASTE = "haste"
     REINFORCEMENTS = "reinforcements"
@@ -36,6 +46,8 @@ class OffensiveModifier(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class GameRules:
+    """Core tunable match constants."""
+
     map_width: int = 64
     map_height: int = 64
     path_length_tiles: float = 64.0
@@ -56,6 +68,8 @@ class GameRules:
 
 @dataclass(frozen=True, slots=True)
 class EnemyDefinition:
+    """Static stats for an enemy type before wave scaling."""
+
     enemy_type: EnemyKind
     point_cost: int
     base_hp: int
@@ -66,6 +80,8 @@ class EnemyDefinition:
 
 @dataclass(frozen=True, slots=True)
 class OffensiveModifierDefinition:
+    """Static effect data for a pressure modifier."""
+
     modifier: OffensiveModifier
     cost: int
     hp_multiplier: float = 1.0
@@ -122,22 +138,30 @@ MODIFIER_DEFINITIONS: dict[OffensiveModifier, OffensiveModifierDefinition] = {
 
 
 def base_wave_points_for_wave(wave_number: int) -> int:
+    """Return the base pressure budget for a wave."""
+
     return GAME_RULES.base_wave_points + ((wave_number - 1) * GAME_RULES.wave_point_growth)
 
 
 def modifier_points_for_wave(wave_number: int) -> int:
+    """Return the pressure budget available for player-added units."""
+
     return math.floor(
         base_wave_points_for_wave(wave_number) * GAME_RULES.modifier_budget_ratio
     )
 
 
 def wave_clear_bonus_for_wave(wave_number: int) -> int:
+    """Return the gold awarded for surviving a wave."""
+
     return GAME_RULES.wave_clear_bonus_base + (
         wave_number * GAME_RULES.wave_clear_bonus_per_wave
     )
 
 
 def base_wave_mix_for_wave(wave_number: int) -> dict[EnemyKind, float]:
+    """Return the default enemy ratio mix for a wave."""
+
     if wave_number <= 2:
         return {
             EnemyKind.RUNNER: 0.85,

@@ -1,3 +1,5 @@
+"""Headless client-side network adapter used by the pygame UI."""
+
 from __future__ import annotations
 
 import socket
@@ -27,6 +29,8 @@ from shared.settings import DEFAULT_HOST, DEFAULT_PORT, SOCKET_TIMEOUT_SECONDS
 
 @dataclass(slots=True)
 class ClientSessionState:
+    """Client-side snapshot of session and match-related state."""
+
     player_id: str | None = None
     opponent_name: str | None = None
     match_state: MatchState | None = None
@@ -40,6 +44,8 @@ class ClientSessionState:
 
 
 class GameClient:
+    """Manage the client socket, handshake, and incoming server state."""
+
     _MAX_ERROR_MESSAGES = 10
 
     def __init__(
@@ -65,6 +71,8 @@ class GameClient:
         self._connect_attempted = False
 
     def connect(self) -> bool:
+        """Open a connection, send the hello packet, and start the receive loop."""
+
         if self._connect_attempted:
             self._set_connect_error("Reconnect is disabled. Return to lobby and connect again.")
             print(self.connect_error_message)
@@ -109,6 +117,8 @@ class GameClient:
             return False
 
     def disconnect(self) -> None:
+        """Disconnect from the server and tear down the local socket state."""
+
         if self._connection.is_open:
             try:
                 self._connection.send(DisconnectPacket())
@@ -119,6 +129,8 @@ class GameClient:
         self._connection.close()
 
     def wait_until_ready(self, timeout: float = 120.0) -> bool:
+        """Block until the server assigns the local player to a match."""
+
         if self.player_id is not None:
             return True
 
@@ -137,15 +149,23 @@ class GameClient:
         return self.player_id is not None
 
     def place_tower(self, tower_type: TowerKind, tile_x: int, tile_y: int) -> None:
+        """Send a tower placement request."""
+
         self._send(PlaceTowerPacket(tower_type=tower_type.value, tile_x=tile_x, tile_y=tile_y))
 
     def upgrade_tower(self, tower_id: int) -> None:
+        """Send a tower upgrade request."""
+
         self._send(UpgradeTowerPacket(tower_id=tower_id))
 
     def sell_tower(self, tower_id: int) -> None:
+        """Send a tower sell request."""
+
         self._send(SellTowerPacket(tower_id=tower_id))
 
     def sell_tower_at(self, tile_x: int, tile_y: int) -> None:
+        """Look up a tower by tile and send a sell request for it."""
+
         match_state = self.match_state
         player_id = self.player_id
         if match_state is None or player_id is None:
@@ -173,6 +193,8 @@ class GameClient:
         unit_counts: dict[EnemyKind, int],
         modifiers: set[OffensiveModifier] | None = None,
     ) -> None:
+        """Send an updated outgoing pressure plan to the server."""
+
         counts = {kind.value: count for kind, count in unit_counts.items()}
         modifier_values = [modifier.value for modifier in (modifiers or set())]
         self._send(
@@ -183,9 +205,13 @@ class GameClient:
         )
 
     def skip_build(self) -> None:
+        """Mark the local player as ready for the next wave."""
+
         self._send(SkipBuildPacket())
 
     def pop_errors(self) -> list[str]:
+        """Return and clear queued server-side error messages."""
+
         with self._state_lock:
             errors = list(self.session.error_messages)
             self.session.error_messages.clear()
@@ -237,11 +263,15 @@ class GameClient:
             return self.session.connect_error_message
 
     def _reset_session(self) -> None:
+        """Reset local session data before a fresh connect attempt."""
+
         with self._state_lock:
             self.session = ClientSessionState()
         self._ready_event.clear()
 
     def _send(self, packet: object) -> None:
+        """Send a packet and disconnect on transport failure."""
+
         if not self._connection.is_open:
             return
 
@@ -251,6 +281,8 @@ class GameClient:
             self.disconnect()
 
     def _receive_loop(self) -> None:
+        """Continuously receive packets until the connection closes."""
+
         while self.is_connected and self._connection.is_open:
             try:
                 self._handle_packet(self._connection.receive())
@@ -263,6 +295,8 @@ class GameClient:
         self.disconnect()
 
     def _handle_packet(self, packet: object) -> None:
+        """Dispatch a received packet to the appropriate handler."""
+
         if isinstance(packet, GameStartPacket):
             self._handle_game_start(packet)
         elif isinstance(packet, GameStatePacket):
@@ -275,6 +309,8 @@ class GameClient:
             self._handle_welcome(packet)
 
     def _handle_game_start(self, packet: GameStartPacket) -> None:
+        """Store match assignment data from the server."""
+
         with self._state_lock:
             self.session.player_id = packet.your_player_id
             self.session.opponent_name = packet.opponent_name
@@ -284,11 +320,15 @@ class GameClient:
         )
 
     def _handle_game_state(self, packet: GameStatePacket) -> None:
+        """Replace the local match snapshot with the latest server state."""
+
         match_state = deserialize_match_state(packet.state)
         with self._state_lock:
             self.session.match_state = match_state
 
     def _handle_game_over(self, packet: GameOverPacket) -> None:
+        """Store final match result metadata."""
+
         with self._state_lock:
             self.session.game_over = True
             self.session.game_over_winner = packet.winner_player_id or None
@@ -296,6 +336,8 @@ class GameClient:
         print(f"Game over! Winner: {packet.winner_player_id}, Draw: {packet.is_draw}")
 
     def _handle_error(self, packet: ErrorPacket) -> None:
+        """Queue an error message received from the server."""
+
         with self._state_lock:
             self.session.error_messages.append(packet.message)
             if len(self.session.error_messages) > self._MAX_ERROR_MESSAGES:
@@ -304,19 +346,27 @@ class GameClient:
                 ]
 
     def _handle_welcome(self, packet: JoinAcceptedPacket) -> None:
+        """Store the server welcome message shown in the lobby."""
+
         with self._state_lock:
             self.session.welcome_message = packet.message
 
     def _set_connected(self, connected: bool) -> None:
+        """Update the local connection flag."""
+
         with self._state_lock:
             self.session.connected = connected
 
     def _set_connect_error(self, message: str) -> None:
+        """Store the latest user-facing connect error message."""
+
         with self._state_lock:
             self.session.connect_error_message = message
 
     @staticmethod
     def _normalize_reject_reason(reason: str) -> str:
+        """Map server rejection reasons to cleaner lobby messages."""
+
         lowered = reason.lower()
         if "already running" in lowered or "in progress" in lowered:
             return "Server is full and already running a match. Try again later."
@@ -326,6 +376,8 @@ class GameClient:
 
     @staticmethod
     def _format_connect_error(error: Exception) -> str:
+        """Convert low-level socket errors into UI-friendly text."""
+
         if isinstance(error, socket.gaierror):
             return "Could not resolve server address. Check IP/hostname."
 

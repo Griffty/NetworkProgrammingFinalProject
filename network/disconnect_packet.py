@@ -1,3 +1,5 @@
+"""Client packet used to explicitly close a session."""
+
 from dataclasses import dataclass
 
 from network.packets import Packet, PacketId
@@ -5,6 +7,8 @@ from network.packets import Packet, PacketId
 
 @dataclass(slots=True)
 class DisconnectPacket(Packet):
+    """Signals intentional client disconnect."""
+
     @classmethod
     def version(cls) -> int:
         return 1

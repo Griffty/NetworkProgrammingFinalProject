@@ -1,3 +1,5 @@
+"""Client command packet for selling a placed tower."""
+
 from dataclasses import dataclass
 
 from network.packets import Packet, PacketId
@@ -5,6 +7,8 @@ from network.packets import Packet, PacketId
 
 @dataclass(slots=True)
 class SellTowerPacket(Packet):
+    """Request to sell a tower by ID."""
+
     tower_id: int
 
     @classmethod

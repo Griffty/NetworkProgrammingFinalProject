@@ -1,9 +1,13 @@
+"""Validation and bookkeeping for outgoing pressure plans."""
+
 from game.match_state import MatchState
 from shared.models.game_rules import EnemyKind, OffensiveModifier
 from shared.models.state import OutgoingPressureState, PlayerState, zero_enemy_counts
 
 
 class PressureService:
+    """Apply player-selected pressure unit counts and modifiers."""
+
     def configure_pressure(
         self,
         state: MatchState,
@@ -11,6 +15,8 @@ class PressureService:
         unit_counts: dict[EnemyKind, int],
         modifiers: set[OffensiveModifier] | None = None,
     ) -> OutgoingPressureState:
+        """Validate and store a player's next outgoing pressure plan."""
+
         player = self._require_player(state, player_id)
         modifiers = set(modifiers or set())
         wave_number = state.current_wave_number + 1

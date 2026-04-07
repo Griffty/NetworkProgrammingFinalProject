@@ -1,3 +1,5 @@
+"""Phase transitions and end-of-wave/end-of-match rules."""
+
 from collections.abc import Callable
 
 from game.match_state import MatchState
@@ -5,10 +7,14 @@ from shared.models.game_rules import MatchPhase, wave_clear_bonus_for_wave
 
 
 class PhaseService:
+    """Own phase timing and match resolution logic."""
+
     def __init__(self, build_phase_seconds: float) -> None:
         self._build_phase_seconds = build_phase_seconds
 
     def begin_build_phase(self, state: MatchState) -> None:
+        """Enter the build phase and reset ready flags."""
+
         state.phase = MatchPhase.BUILD
         state.phase_time_remaining_seconds = self._build_phase_seconds
         for player in state.players.values():
@@ -21,6 +27,8 @@ class PhaseService:
         delta_seconds: float,
         start_next_wave: Callable[[], None],
     ) -> None:
+        """Advance build timer and start the next wave when it expires."""
+
         state.phase_time_remaining_seconds = max(
             0.0,
             state.phase_time_remaining_seconds - delta_seconds,
@@ -29,6 +37,8 @@ class PhaseService:
             start_next_wave()
 
     def finish_current_wave(self, state: MatchState) -> None:
+        """Award wave-clear bonuses and return the match to build phase."""
+
         wave_number = state.current_wave_number
         bonus_gold = wave_clear_bonus_for_wave(wave_number)
 
@@ -42,6 +52,8 @@ class PhaseService:
         self.begin_build_phase(state)
 
     def update_win_state(self, state: MatchState) -> None:
+        """Check whether the match has reached a win or draw condition."""
+
         alive_players = state.alive_players()
         if len(alive_players) == 2:
             return
@@ -70,6 +82,8 @@ class PhaseService:
         is_draw: bool,
         event_message: str,
     ) -> None:
+        """Mark the match finished and clear remaining wave activity."""
+
         state.phase = MatchPhase.FINISHED
         state.phase_time_remaining_seconds = 0.0
         state.winner_player_id = winner_player_id

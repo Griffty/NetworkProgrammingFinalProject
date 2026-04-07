@@ -1,3 +1,5 @@
+"""Lobby UI used before a match begins."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -11,6 +13,8 @@ Color = tuple[int, int, int]
 
 @dataclass(frozen=True, slots=True)
 class ConnectAction:
+    """Validated lobby input ready to be turned into a connection attempt."""
+
     host: str
     port: int
     player_name: str
@@ -18,6 +22,8 @@ class ConnectAction:
 
 @dataclass(frozen=True, slots=True)
 class LobbyLayout:
+    """Precomputed rectangles for the current lobby window size."""
+
     panel_rect: pygame.Rect
     name_field_rect: pygame.Rect
     host_field_rect: pygame.Rect
@@ -26,6 +32,8 @@ class LobbyLayout:
 
 
 class PygameLobbyView:
+    """Render and handle the pre-match connection screen."""
+
     _BACKGROUND = (16, 20, 24)
     _PANEL = (27, 34, 40)
     _INPUT_BG = (18, 24, 30)
@@ -61,6 +69,8 @@ class PygameLobbyView:
         self._small_font: pygame.font.Font | None = None
 
     def open(self) -> None:
+        """Initialize pygame resources for the lobby screen."""
+
         pygame.init()
         pygame.display.set_caption("Space Legion TD - Lobby")
         self._screen = pygame.display.set_mode(self.window_size, pygame.RESIZABLE)
@@ -70,17 +80,25 @@ class PygameLobbyView:
         self._small_font = pygame.font.Font(None, 24)
 
     def close(self) -> None:
+        """Tear down pygame for the lobby view."""
+
         pygame.quit()
 
     def next_frame(self) -> float:
+        """Tick the lobby frame clock and return delta seconds."""
+
         assert self._clock is not None
         return self._clock.tick(60) / 1000.0
 
     def set_status(self, message: str, color: Color) -> None:
+        """Update the status text displayed under the connect controls."""
+
         self.status_message = message
         self.status_color = color
 
     def handle_events(self) -> tuple[bool, ConnectAction | None]:
+        """Handle window/input events and optionally emit a connect action."""
+
         layout = self._layout()
         connect_action: ConnectAction | None = None
 
@@ -134,6 +152,8 @@ class PygameLobbyView:
         waiting_for_match: bool,
         welcome_message: str,
     ) -> None:
+        """Draw the current lobby state."""
+
         assert self._screen is not None
         assert self._title_font is not None
         assert self._font is not None
@@ -227,6 +247,8 @@ class PygameLobbyView:
         return self._WAITING
 
     def _layout(self) -> LobbyLayout:
+        """Compute the current layout rectangles from window size."""
+
         width, height = self.window_size
         panel_margin_x = 40
         panel_margin_y = 30
@@ -260,6 +282,8 @@ class PygameLobbyView:
         text: str,
         is_active: bool,
     ) -> None:
+        """Draw a styled text input box."""
+
         assert self._font is not None
         border_color = self._INPUT_ACTIVE if is_active else self._INPUT_IDLE
         pygame.draw.rect(screen, self._INPUT_BG, rect, border_radius=6)
@@ -272,6 +296,8 @@ class PygameLobbyView:
         screen.blit(text_surface, (text_x, text_y))
 
     def _handle_key_input(self, event: pygame.event.Event) -> None:
+        """Apply text editing input to the active lobby field."""
+
         if event.key == pygame.K_BACKSPACE:
             if self.active_field == "name":
                 self.name_text = self.name_text[:-1]
@@ -301,6 +327,8 @@ class PygameLobbyView:
             self.port_text += char
 
     def _try_build_connect_action(self) -> ConnectAction | None:
+        """Validate form input and build a connect action if valid."""
+
         player_name = self.name_text.strip()
         host = self.host_text.strip()
         port_text = self.port_text.strip()
@@ -326,6 +354,8 @@ class PygameLobbyView:
         return ConnectAction(host=host, port=port, player_name=player_name)
 
     def _rules_lines(self) -> tuple[str, ...]:
+        """Return the short rules summary shown in the lobby."""
+
         return (
             f"Map size: {GAME_RULES.map_width}x{GAME_RULES.map_height} tiles",
             f"Starting gold: {GAME_RULES.starting_gold}",

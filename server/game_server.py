@@ -1,3 +1,5 @@
+"""TCP game server handling lobby joins and match lifecycle."""
+
 from __future__ import annotations
 
 import socket
@@ -19,6 +21,8 @@ from server.player_lobby import PlayerConnection, PlayerLobby
 
 
 class GameServer:
+    """Accept clients, run lobbies, and start authoritative matches."""
+
     def __init__(self, host: str = DEFAULT_HOST, port: int = DEFAULT_PORT) -> None:
         register_packets()
         self.host = host
@@ -31,6 +35,8 @@ class GameServer:
         self._match_runner: MatchRunner | None = None
 
     def serve_forever(self) -> None:
+        """Start listening for clients and serve until stopped."""
+
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
             self._socket = server_socket
             server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -64,6 +70,8 @@ class GameServer:
                 print("Server stopped.")
 
     def stop(self) -> None:
+        """Stop the server and close all active connections."""
+
         self._running.clear()
         self._lobby.close_all_and_clear()
         if self._socket is not None:
@@ -77,6 +85,8 @@ class GameServer:
         client_socket: socket.socket,
         client_address: tuple[str, int],
     ) -> None:
+        """Own the lifecycle of a single accepted client connection."""
+
         connection: PlayerConnection | None = None
 
         with client_socket:
@@ -112,6 +122,8 @@ class GameServer:
         client_socket: socket.socket,
         player_name: str,
     ) -> PlayerConnection | None:
+        """Try to place a connecting player into the current lobby."""
+
         if self._has_started_match():
             PacketCodec.send(
                 client_socket,
@@ -146,6 +158,8 @@ class GameServer:
         return connection
 
     def _start_match(self) -> None:
+        """Create a match runner and notify both players that the match started."""
+
         with self._server_lock:
             if self._match_runner is not None:
                 return
@@ -171,6 +185,8 @@ class GameServer:
         print("Match started!")
 
     def _receive_loop(self, player_id: str, client_socket: socket.socket) -> None:
+        """Read packets from one connected player until disconnect."""
+
         while self._running.is_set():
             try:
                 packet = PacketCodec.recv(client_socket)
@@ -184,6 +200,8 @@ class GameServer:
                 break
 
     def _queue_command(self, player_id: str, packet: object) -> None:
+        """Parse a packet and enqueue the resulting command for the runner."""
+
         match_runner = self._match_runner
         if match_runner is None:
             self._send_error(player_id, "Match has not started yet.")
@@ -201,9 +219,13 @@ class GameServer:
         match_runner.enqueue_command(player_id, command)
 
     def _send_error(self, player_id: str, message: str) -> None:
+        """Send a user-facing error packet to one player."""
+
         self._lobby.send_to_player(player_id, ErrorPacket(message=message))
 
     def _handle_disconnect(self, player_id: str) -> None:
+        """Remove a player and finish the match if needed."""
+
         print(f"{self._lobby.display_name(player_id)} disconnected.")
         remaining_player_ids = self._lobby.remove_player(player_id)
 
@@ -212,6 +234,8 @@ class GameServer:
             match_runner.finish_due_to_disconnect(remaining_player_ids)
 
     def _handle_match_finished(self) -> None:
+        """Reset server state after the current match finishes."""
+
         with self._server_lock:
             self._match_runner = None
 
@@ -219,5 +243,7 @@ class GameServer:
         print("Match reset. Waiting for players...")
 
     def _has_started_match(self) -> bool:
+        """Return whether the server currently owns an active match runner."""
+
         with self._server_lock:
             return self._match_runner is not None

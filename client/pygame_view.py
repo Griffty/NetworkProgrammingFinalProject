@@ -1,3 +1,5 @@
+"""Main in-match pygame view and input translation layer."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -23,6 +25,8 @@ Color = tuple[int, int, int]
 
 @dataclass(frozen=True, slots=True)
 class BoardView:
+    """Screen-space placement information for one rendered board."""
+
     player_id: str
     left: int
     top: int
@@ -30,11 +34,15 @@ class BoardView:
 
     @property
     def rect(self) -> pygame.Rect:
+        """Return the board rectangle in virtual coordinates."""
+
         return pygame.Rect(self.left, self.top, self.size, self.size)
 
 
 @dataclass(frozen=True, slots=True)
 class PlaceTowerAction:
+    """View action requesting tower placement."""
+
     tower_type: TowerKind
     tile_x: int
     tile_y: int
@@ -42,23 +50,31 @@ class PlaceTowerAction:
 
 @dataclass(frozen=True, slots=True)
 class SellTowerAction:
+    """View action requesting tower sale."""
+
     tile_x: int
     tile_y: int
 
 
 @dataclass(frozen=True, slots=True)
 class SkipBuildAction:
+    """View action requesting early build completion."""
+
     pass
 
 
 @dataclass(frozen=True, slots=True)
 class AdjustPressureUnitsAction:
+    """View action that changes the count of one enemy type."""
+
     enemy_kind: EnemyKind
     delta: int
 
 
 @dataclass(frozen=True, slots=True)
 class TogglePressureModifierAction:
+    """View action that toggles a pressure modifier on or off."""
+
     modifier: OffensiveModifier
 
 
@@ -73,6 +89,8 @@ ClientAction = (
 
 @dataclass(frozen=True, slots=True)
 class UiFonts:
+    """Grouped font resources used by the in-match view."""
+
     title: pygame.font.Font
     section: pygame.font.Font
     body: pygame.font.Font
@@ -81,6 +99,8 @@ class UiFonts:
 
 
 class PygameClientView:
+    """Render the match scene and convert input into high-level UI actions."""
+
     _BACKGROUND = (11, 16, 22)
     _PANEL = (21, 30, 40)
     _PANEL_BORDER = (43, 58, 72)
@@ -168,6 +188,8 @@ class PygameClientView:
         self._fonts: UiFonts | None = None
 
     def open(self, player_name: str, my_player_id: str | None) -> None:
+        """Initialize pygame resources for the gameplay screen."""
+
         pygame.init()
         pygame.display.set_caption(
             f"Space Legion TD - {player_name} ({my_player_id or '?'})"
@@ -185,13 +207,19 @@ class PygameClientView:
         )
 
     def close(self) -> None:
+        """Tear down pygame for the gameplay view."""
+
         pygame.quit()
 
     def next_frame(self) -> float:
+        """Tick the gameplay frame clock and return delta seconds."""
+
         assert self._clock is not None
         return self._clock.tick(60) / 1000.0
 
     def update(self, frame_seconds: float) -> None:
+        """Advance transient UI timers such as status messages."""
+
         if self.status_timeout > 0.0:
             self.status_timeout = max(0.0, self.status_timeout - frame_seconds)
             if self.status_timeout == 0.0:
@@ -202,6 +230,8 @@ class PygameClientView:
         state: MatchState | None,
         my_player_id: str | None,
     ) -> tuple[bool, list[ClientAction]]:
+        """Handle gameplay input and return the resulting UI actions."""
+
         actions: list[ClientAction] = []
 
         for event in pygame.event.get():
@@ -294,6 +324,8 @@ class PygameClientView:
         state: MatchState | None,
         match_end_state: tuple[str, str] | None = None,
     ) -> None:
+        """Draw the full gameplay scene for the current state."""
+
         assert self._screen is not None
         assert self._scene_surface is not None
         assert self._fonts is not None
@@ -335,6 +367,8 @@ class PygameClientView:
         self._present_scene(scene, screen)
 
     def handle_post_match_events(self) -> tuple[bool, bool]:
+        """Handle input while the post-match overlay is visible."""
+
         play_again = False
 
         for event in pygame.event.get():
@@ -367,11 +401,15 @@ class PygameClientView:
         return True, play_again
 
     def set_status(self, message: str, color: Color) -> None:
+        """Show a temporary status message in the header."""
+
         self.status_message = message
         self.status_color = color
         self.status_timeout = 3.0
 
     def show_error(self, message: str) -> None:
+        """Display an error using the standard error status color."""
+
         self.set_status(message, self._ERROR)
 
     def _mouse_to_board(self, mouse_position: tuple[int, int]) -> tuple[str, int, int] | None:

@@ -1,3 +1,5 @@
+"""Splash-damage tower definition."""
+
 import math
 from collections.abc import Sequence
 
@@ -7,6 +9,8 @@ from shared.models.state import EnemyState, TowerState
 
 
 class PulseTower(AbstractTower):
+    """Area-damage tower that hits enemies near its target."""
+
     tower_kind = TowerKind.PULSE
     cost = 50
     upgrade_costs = (35, 55)

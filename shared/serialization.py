@@ -1,3 +1,5 @@
+"""Serialization helpers for match state sent over the network."""
+
 from __future__ import annotations
 
 from game.match_state import MatchState
@@ -19,6 +21,8 @@ from shared.models.state import (
 
 
 def serialize_match_state(state: MatchState) -> dict:
+    """Convert a runtime match state into plain JSON-safe data."""
+
     return {
         "match_id": state.match_id,
         "phase": state.phase.value,
@@ -37,6 +41,8 @@ def serialize_match_state(state: MatchState) -> dict:
 
 
 def deserialize_match_state(data: dict) -> MatchState:
+    """Rebuild a runtime match state from serialized packet data."""
+
     state = MatchState()
     state.match_id = data["match_id"]
     state.phase = MatchPhase(data["phase"])
@@ -56,6 +62,8 @@ def deserialize_match_state(data: dict) -> MatchState:
 
 
 def _serialize_player(player: PlayerState) -> dict:
+    """Serialize a player state block."""
+
     return {
         "name": player.name,
         "gold": player.gold,
@@ -73,6 +81,8 @@ def _serialize_player(player: PlayerState) -> dict:
 
 
 def _deserialize_player(player_id: str, data: dict) -> PlayerState:
+    """Deserialize a player state block."""
+
     towers = {
         int(tid): _deserialize_tower(tdata) for tid, tdata in data["towers"].items()
     }
@@ -93,6 +103,8 @@ def _deserialize_player(player_id: str, data: dict) -> PlayerState:
 
 
 def _serialize_tower(tower: TowerState) -> dict:
+    """Serialize a tower state block."""
+
     return {
         "tower_id": tower.tower_id,
         "tower_type": tower.tower_type.value,
@@ -105,6 +117,8 @@ def _serialize_tower(tower: TowerState) -> dict:
 
 
 def _deserialize_tower(data: dict) -> TowerState:
+    """Deserialize a tower state block."""
+
     return TowerState(
         tower_id=data["tower_id"],
         tower_type=TowerKind(data["tower_type"]),
@@ -117,6 +131,8 @@ def _deserialize_tower(data: dict) -> TowerState:
 
 
 def _serialize_enemy(enemy: EnemyState) -> dict:
+    """Serialize an enemy state block."""
+
     return {
         "enemy_id": enemy.enemy_id,
         "enemy_type": enemy.enemy_type.value,
@@ -134,6 +150,8 @@ def _serialize_enemy(enemy: EnemyState) -> dict:
 
 
 def _deserialize_enemy(data: dict) -> EnemyState:
+    """Deserialize an enemy state block."""
+
     return EnemyState(
         enemy_id=data["enemy_id"],
         enemy_type=EnemyKind(data["enemy_type"]),
@@ -151,6 +169,8 @@ def _deserialize_enemy(data: dict) -> EnemyState:
 
 
 def _serialize_wave(wave: WaveState) -> dict:
+    """Serialize a wave state block."""
+
     return {
         "wave_number": wave.wave_number,
         "base_points": wave.base_points,
@@ -168,6 +188,8 @@ def _serialize_wave(wave: WaveState) -> dict:
 
 
 def _deserialize_wave(data: dict) -> WaveState:
+    """Deserialize a wave state block."""
+
     return WaveState(
         wave_number=data["wave_number"],
         base_points=data["base_points"],
@@ -185,6 +207,8 @@ def _deserialize_wave(data: dict) -> WaveState:
 
 
 def _serialize_pressure(pressure: OutgoingPressureState) -> dict:
+    """Serialize the outgoing pressure plan."""
+
     return {
         "unit_counts": {k.value: v for k, v in pressure.unit_counts.items()},
         "modifiers": [m.value for m in pressure.modifiers],
@@ -192,6 +216,8 @@ def _serialize_pressure(pressure: OutgoingPressureState) -> dict:
 
 
 def _deserialize_pressure(data: dict) -> OutgoingPressureState:
+    """Deserialize the outgoing pressure plan."""
+
     return OutgoingPressureState(
         unit_counts={EnemyKind(k): v for k, v in data["unit_counts"].items()},
         modifiers={OffensiveModifier(m) for m in data["modifiers"]},

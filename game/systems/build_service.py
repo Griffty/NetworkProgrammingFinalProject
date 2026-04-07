@@ -1,3 +1,5 @@
+"""Building-related game rules such as place, sell, and upgrade."""
+
 import math
 from collections.abc import Callable
 
@@ -8,6 +10,8 @@ from shared.models.state import PlayerState, TowerState
 
 
 class BuildService:
+    """Apply build-phase actions to match state."""
+
     def __init__(
         self,
         starting_gold: int,
@@ -26,6 +30,8 @@ class BuildService:
         player_id: str,
         player_name: str,
     ) -> PlayerState:
+        """Create and add a new player with starting resources."""
+
         player = PlayerState(
             player_id=player_id,
             name=player_name,
@@ -44,6 +50,8 @@ class BuildService:
         tile_x: int,
         tile_y: int,
     ) -> TowerState:
+        """Place a new tower if the tile and economy rules allow it."""
+
         player = self._require_player(state, player_id)
         tower_model = get_tower(tower_type)
 
@@ -73,6 +81,8 @@ class BuildService:
         player_id: str,
         tower_id: int,
     ) -> TowerState:
+        """Upgrade an owned tower if the player can afford it."""
+
         player = self._require_player(state, player_id)
         tower = self._require_tower(player, tower_id)
         tower_model = get_tower(tower.tower_type)
@@ -97,6 +107,8 @@ class BuildService:
         player_id: str,
         tower_id: int,
     ) -> int:
+        """Sell an owned tower and return the refund amount."""
+
         player = self._require_player(state, player_id)
         tower = self._require_tower(player, tower_id)
 

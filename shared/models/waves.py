@@ -1,3 +1,5 @@
+"""Helpers for building the base wave composition for each round."""
+
 import math
 from dataclasses import dataclass
 
@@ -12,6 +14,8 @@ from shared.models.game_rules import (
 
 @dataclass(frozen=True, slots=True)
 class WaveDefinition:
+    """Static description of a generated base wave."""
+
     wave_number: int
     point_budget: int
     spawn_interval_seconds: float
@@ -19,10 +23,14 @@ class WaveDefinition:
     enemy_sequence: tuple[EnemyKind, ...]
 
     def counts_map(self) -> dict[EnemyKind, int]:
+        """Return enemy counts as a mutable dictionary."""
+
         return {enemy_kind: count for enemy_kind, count in self.unit_counts}
 
 
 def build_base_wave_definition(wave_number: int) -> WaveDefinition:
+    """Build the default wave layout before player pressure is applied."""
+
     point_budget = base_wave_points_for_wave(wave_number)
     unit_counts = _build_counts_from_points(point_budget, wave_number)
     enemy_sequence = _build_enemy_sequence(unit_counts)
@@ -40,6 +48,8 @@ def _build_counts_from_points(
     points: int,
     wave_number: int,
 ) -> dict[EnemyKind, int]:
+    """Distribute a point budget across enemy types for a wave."""
+
     ratios = base_wave_mix_for_wave(wave_number)
     counts = _empty_enemy_counts()
     remaining_points = points
@@ -67,6 +77,8 @@ def _build_counts_from_points(
 
 
 def _build_enemy_sequence(unit_counts: dict[EnemyKind, int]) -> list[EnemyKind]:
+    """Interleave enemy types into a spawn order from aggregated counts."""
+
     remaining_counts = unit_counts.copy()
     enemy_sequence: list[EnemyKind] = []
 
@@ -94,9 +106,13 @@ def _build_enemy_sequence(unit_counts: dict[EnemyKind, int]) -> list[EnemyKind]:
 
 
 def _spawn_interval_for_wave(wave_number: int) -> float:
+    """Return the spawn cadence for a given wave number."""
+
     reduced_interval = GAME_RULES.spawn_interval_seconds - ((wave_number - 1) * 0.01)
     return max(0.18, reduced_interval)
 
 
 def _empty_enemy_counts() -> dict[EnemyKind, int]:
+    """Create a zero-count map used while constructing waves."""
+
     return {enemy_kind: 0 for enemy_kind in EnemyKind}

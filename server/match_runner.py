@@ -1,3 +1,5 @@
+"""Background loop that advances the match simulation and broadcasts state."""
+
 from __future__ import annotations
 
 import queue
@@ -14,6 +16,8 @@ from shared.serialization import serialize_match_state
 
 
 class MatchRunner:
+    """Own the simulation thread for one active match."""
+
     def __init__(
         self,
         player_names: list[str],
@@ -31,10 +35,14 @@ class MatchRunner:
 
     @property
     def is_finished(self) -> bool:
+        """Return whether the underlying match has reached the finished phase."""
+
         with self._state_lock:
             return self._engine.state.phase == MatchPhase.FINISHED
 
     def start(self, running_event: threading.Event) -> None:
+        """Start the background match loop if it is not already running."""
+
         if self._game_thread is not None and self._game_thread.is_alive():
             return
 
@@ -46,13 +54,19 @@ class MatchRunner:
         self._game_thread.start()
 
     def enqueue_command(self, player_id: str, command: GameCommand) -> None:
+        """Queue a command to be applied on the next simulation tick."""
+
         self._command_queue.put((player_id, command))
 
     def finish_due_to_disconnect(self, connected_player_ids: list[str]) -> None:
+        """End the match using the current set of connected players."""
+
         with self._state_lock:
             self._engine.finish_due_to_disconnect(connected_player_ids)
 
     def _game_loop(self, running_event: threading.Event) -> None:
+        """Advance the engine on a fixed tick and broadcast state updates."""
+
         tick_interval = 1.0 / self._engine.state.tick_rate_hz
 
         while running_event.is_set() and not self.is_finished:
@@ -91,6 +105,8 @@ class MatchRunner:
                 self._on_match_finished()
 
     def _drain_commands(self) -> None:
+        """Apply queued commands and route validation errors back to clients."""
+
         while True:
             try:
                 player_id, command = self._command_queue.get_nowait()

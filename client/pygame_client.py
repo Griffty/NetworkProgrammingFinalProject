@@ -1,3 +1,5 @@
+"""Top-level pygame client flow controller."""
+
 from __future__ import annotations
 
 from client.game_client import GameClient
@@ -16,6 +18,8 @@ from shared.models.game_rules import MatchPhase
 
 
 class PygameClient:
+    """Coordinate lobby UI, gameplay UI, and the network client."""
+
     def __init__(self, host: str, port: int, player_name: str = "Player1") -> None:
         self.default_host = host
         self.default_port = port
@@ -28,6 +32,8 @@ class PygameClient:
         self.view = PygameClientView()
 
     def run(self) -> None:
+        """Run the lobby and match loops until the user exits."""
+
         while True:
             if not self._run_lobby():
                 return
@@ -48,6 +54,8 @@ class PygameClient:
                 return
 
     def _run_lobby(self) -> bool:
+        """Process the connect lobby until a match starts or the user quits."""
+
         self.lobby_view.open()
         running = True
 
@@ -87,6 +95,8 @@ class PygameClient:
         return False
 
     def _attempt_connect(self, action: ConnectAction) -> None:
+        """Apply a lobby connect action and create a fresh network client."""
+
         if self.network_client is not None and self.network_client.is_connected:
             self._disconnect_network_client()
             self.lobby_view.set_status(
@@ -117,6 +127,8 @@ class PygameClient:
         )
 
     def _run_main_loop(self) -> bool:
+        """Run the in-match UI until exit or return-to-lobby."""
+
         assert self.network_client is not None
         running = True
         last_state: MatchState | None = None
@@ -163,10 +175,14 @@ class PygameClient:
         return False
 
     def _flush_network_errors(self) -> None:
+        """Move queued network errors into the view status area."""
+
         for error in self.network_client.pop_errors():
             self.view.show_error(error)
 
     def _apply_actions(self, actions: list[ClientAction]) -> None:
+        """Translate view actions into network requests."""
+
         for action in actions:
             if isinstance(action, PlaceTowerAction):
                 self.network_client.place_tower(
@@ -187,6 +203,8 @@ class PygameClient:
                 self._apply_pressure_modifier_toggle(action)
 
     def _apply_pressure_units_delta(self, action: AdjustPressureUnitsAction) -> None:
+        """Update the current outgoing pressure unit counts locally."""
+
         state = self.network_client.match_state
         player_id = self.network_client.player_id
         if state is None or player_id is None:
@@ -205,6 +223,8 @@ class PygameClient:
         self.network_client.configure_pressure(unit_counts, modifiers)
 
     def _apply_pressure_modifier_toggle(self, action: TogglePressureModifierAction) -> None:
+        """Toggle one outgoing pressure modifier for the active player."""
+
         state = self.network_client.match_state
         player_id = self.network_client.player_id
         if state is None or player_id is None:
@@ -225,6 +245,8 @@ class PygameClient:
         self.network_client.configure_pressure(unit_counts, modifiers)
 
     def _disconnect_network_client(self) -> None:
+        """Disconnect and discard the current network client, if any."""
+
         if self.network_client is None:
             return
         self.network_client.disconnect()
@@ -234,6 +256,8 @@ class PygameClient:
         self,
         last_state: MatchState | None,
     ) -> tuple[str, str] | None:
+        """Return the post-match overlay text for the current session state."""
+
         assert self.network_client is not None
 
         is_finished = self.network_client.game_over

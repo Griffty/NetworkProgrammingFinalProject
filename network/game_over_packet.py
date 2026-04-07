@@ -1,3 +1,5 @@
+"""Server packet announcing match completion."""
+
 from dataclasses import dataclass
 
 from network.packets import Packet, PacketId
@@ -5,6 +7,8 @@ from network.packets import Packet, PacketId
 
 @dataclass(slots=True)
 class GameOverPacket(Packet):
+    """Declares the winner or draw state at match end."""
+
     winner_player_id: str
     is_draw: bool
 

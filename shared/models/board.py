@@ -1,3 +1,5 @@
+"""Board geometry and path layout helpers."""
+
 import math
 from dataclasses import dataclass
 
@@ -7,6 +9,8 @@ Point = tuple[float, float]
 
 @dataclass(frozen=True, slots=True)
 class BoardLayout:
+    """Immutable description of a playable board and enemy path."""
+
     width: int
     height: int
     path_waypoints: tuple[Point, ...]
@@ -16,15 +20,23 @@ class BoardLayout:
     leak_tile: Tile
 
     def contains_tile(self, tile_x: int, tile_y: int) -> bool:
+        """Return whether a tile coordinate is inside the board."""
+
         return 0 <= tile_x < self.width and 0 <= tile_y < self.height
 
     def is_path_tile(self, tile_x: int, tile_y: int) -> bool:
+        """Return whether a tile belongs to the enemy path."""
+
         return (tile_x, tile_y) in self.path_tiles
 
     def is_buildable_tile(self, tile_x: int, tile_y: int) -> bool:
+        """Return whether a tower can be placed on a tile."""
+
         return self.contains_tile(tile_x, tile_y) and not self.is_path_tile(tile_x, tile_y)
 
     def position_for_distance(self, distance_tiles: float) -> Point:
+        """Map travelled path distance to an interpolated world position."""
+
         remaining_distance = max(0.0, min(distance_tiles, self.total_path_length_tiles))
 
         for start_point, end_point in zip(
@@ -48,6 +60,8 @@ class BoardLayout:
 
 
 def create_default_board_layout(width: int = 64, height: int = 64) -> BoardLayout:
+    """Build the default two-player board layout used by the game."""
+
     tile_waypoints = (
         (0, 12),
         (20, 12),
@@ -73,6 +87,8 @@ def create_default_board_layout(width: int = 64, height: int = 64) -> BoardLayou
     )
 
 def _build_path_tiles(waypoints: tuple[Tile, ...]) -> set[Tile]:
+    """Expand waypoint segments into a full set of occupied path tiles."""
+
     if len(waypoints) < 2:
         raise ValueError("A board path needs at least two waypoints.")
 
@@ -95,11 +111,15 @@ def _build_path_tiles(waypoints: tuple[Tile, ...]) -> set[Tile]:
 
 
 def _inclusive_range(start_value: int, end_value: int) -> range:
+    """Return a range that includes both the start and end value."""
+
     step = 1 if end_value >= start_value else -1
     return range(start_value, end_value + step, step)
 
 
 def _tile_center(tile_x: int, tile_y: int) -> Point:
+    """Convert tile coordinates to center-point coordinates."""
+
     return (tile_x + 0.5, tile_y + 0.5)
 
 

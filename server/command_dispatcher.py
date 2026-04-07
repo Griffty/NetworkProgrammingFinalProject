@@ -1,3 +1,5 @@
+"""Server-side translation from packets to engine commands."""
+
 from __future__ import annotations
 
 from game.commands import (
@@ -17,7 +19,11 @@ from shared.models.game_rules import EnemyKind, OffensiveModifier, TowerKind
 
 
 class ServerCommandDispatcher:
+    """Parse validated network packets into engine command objects."""
+
     def parse_packet(self, packet: object) -> GameCommand:
+        """Convert a packet into the corresponding game command."""
+
         if isinstance(packet, PlaceTowerPacket):
             return PlaceTowerCommand(
                 tower_type=TowerKind(packet.tower_type),
@@ -46,4 +52,3 @@ class ServerCommandDispatcher:
             return SkipBuildCommand()
 
         raise ValueError(f"Unsupported packet: {type(packet).__name__}")
-

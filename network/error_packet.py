@@ -1,3 +1,5 @@
+"""Server packet for user-facing command or connection errors."""
+
 from dataclasses import dataclass
 
 from network.packets import Packet, PacketId
@@ -5,6 +7,8 @@ from network.packets import Packet, PacketId
 
 @dataclass(slots=True)
 class ErrorPacket(Packet):
+    """Carries a human-readable error message."""
+
     message: str
 
     @classmethod

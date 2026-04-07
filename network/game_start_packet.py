@@ -1,3 +1,5 @@
+"""Server packet announcing that a match is starting."""
+
 from dataclasses import dataclass
 
 from network.packets import Packet, PacketId
@@ -5,6 +7,8 @@ from network.packets import Packet, PacketId
 
 @dataclass(slots=True)
 class GameStartPacket(Packet):
+    """Assigns the local player ID and opponent display name."""
+
     your_player_id: str
     opponent_name: str
 

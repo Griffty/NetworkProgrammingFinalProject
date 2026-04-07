@@ -1,3 +1,5 @@
+"""Client command packet used to mark build phase as ready."""
+
 from dataclasses import dataclass
 
 from network.packets import Packet, PacketId
@@ -5,6 +7,7 @@ from network.packets import Packet, PacketId
 
 @dataclass(slots=True)
 class SkipBuildPacket(Packet):
+    """Request to finish the local build phase early."""
 
     @classmethod
     def version(cls) -> int:

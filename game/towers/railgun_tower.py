@@ -1,3 +1,5 @@
+"""Long-range penetrating beam tower definition."""
+
 import math
 from collections.abc import Sequence
 
@@ -7,6 +9,8 @@ from shared.models.state import EnemyState, TowerState
 
 
 class RailgunTower(AbstractTower):
+    """Slow tower whose beam can hit multiple enemies in a line."""
+
     tower_kind = TowerKind.RAILGUN
     cost = 80
     upgrade_costs = (45, 65)

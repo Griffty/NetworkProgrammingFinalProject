@@ -1,3 +1,5 @@
+"""Thread-safe lobby state for currently connected players."""
+
 from __future__ import annotations
 
 import socket
@@ -9,6 +11,8 @@ from network.packets import PacketCodec
 
 @dataclass(slots=True)
 class PlayerConnection:
+    """Socket and identity information for one connected player."""
+
     player_id: str
     player_name: str
     socket: socket.socket
@@ -16,6 +20,8 @@ class PlayerConnection:
 
 
 class PlayerLobby:
+    """Manage connected players before and during a match."""
+
     def __init__(self, max_players: int = 2) -> None:
         self.max_players = max_players
         self._connections: dict[str, PlayerConnection] = {}
@@ -26,6 +32,8 @@ class PlayerLobby:
         client_socket: socket.socket,
         player_name: str,
     ) -> PlayerConnection | None:
+        """Add a player if the lobby has space, otherwise return ``None``."""
+
         with self._lock:
             if len(self._connections) >= self.max_players:
                 return None
@@ -40,19 +48,27 @@ class PlayerLobby:
             return connection
 
     def remove_player(self, player_id: str) -> list[str]:
+        """Remove a player and return the remaining player IDs."""
+
         with self._lock:
             self._connections.pop(player_id, None)
             return self._ordered_player_ids_locked()
 
     def player_count(self) -> int:
+        """Return the current number of connected players."""
+
         with self._lock:
             return len(self._connections)
 
     def player_ids(self) -> list[str]:
+        """Return connected player IDs in stable player slot order."""
+
         with self._lock:
             return self._ordered_player_ids_locked()
 
     def player_names_for_match(self) -> list[str]:
+        """Return ordered player names for match creation."""
+
         with self._lock:
             return [
                 self._connections[player_id].player_name
@@ -60,6 +76,8 @@ class PlayerLobby:
             ]
 
     def opponent_name_for(self, player_id: str) -> str:
+        """Return the opponent display name for a given player."""
+
         with self._lock:
             for candidate_id in self._ordered_player_ids_locked():
                 if candidate_id != player_id:
@@ -67,11 +85,15 @@ class PlayerLobby:
         return "Unknown"
 
     def display_name(self, player_id: str) -> str:
+        """Return a safe display name for logs and status messages."""
+
         with self._lock:
             connection = self._connections.get(player_id)
             return connection.player_name if connection is not None else player_id
 
     def send_to_player(self, player_id: str, packet: object) -> None:
+        """Send a packet to one player if they are still connected."""
+
         connection = self._get_connection(player_id)
         if connection is None:
             return
@@ -83,10 +105,14 @@ class PlayerLobby:
             pass
 
     def broadcast(self, packet: object) -> None:
+        """Send a packet to every connected player."""
+
         for player_id in self.player_ids():
             self.send_to_player(player_id, packet)
 
     def close_all_and_clear(self) -> list[str]:
+        """Close every client socket and clear the lobby."""
+
         with self._lock:
             player_ids = self._ordered_player_ids_locked()
             connections = list(self._connections.values())

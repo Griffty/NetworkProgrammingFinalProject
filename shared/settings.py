@@ -1,3 +1,5 @@
+"""Shared runtime defaults for networking and startup."""
+
 DEFAULT_HOST = "0.0.0.0"
 DEFAULT_PORT = 5000
 SOCKET_TIMEOUT_SECONDS = 5.0

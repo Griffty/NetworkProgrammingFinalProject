@@ -1,3 +1,5 @@
+"""Server packet used to reject a join attempt with a user-facing reason."""
+
 from dataclasses import dataclass
 
 from network.packets import Packet, PacketId
@@ -5,6 +7,8 @@ from network.packets import Packet, PacketId
 
 @dataclass(slots=True)
 class JoinRejectedPacket(Packet):
+    """Rejection response for a failed lobby join."""
+
     reason: str
 
     @classmethod

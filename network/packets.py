@@ -1,3 +1,5 @@
+"""Packet base classes, registry, and wire codec for TCP transport."""
+
 import json
 import socket
 import struct
@@ -8,35 +10,51 @@ PacketId = NewType("PacketId", str)
 
 
 class Packet(ABC):
+    """Base interface for all network packets."""
+
     @classmethod
     @abstractmethod
     def version(cls) -> int:
+        """Return the packet schema version."""
+
         raise NotImplementedError
 
     @classmethod
     @abstractmethod
     def packet_id(cls) -> PacketId:
+        """Return the stable packet identifier used on the wire."""
+
         raise NotImplementedError
 
     @abstractmethod
     def to_payload(self) -> dict[str, Any]:
+        """Convert the packet into a JSON-serializable payload."""
+
         raise NotImplementedError
 
     @classmethod
     @abstractmethod
     def from_payload(cls, payload: dict[str, Any]) -> "Packet":
+        """Rebuild a packet from its serialized payload."""
+
         raise NotImplementedError
 
     @classmethod
     def register(cls) -> None:
+        """Register the packet type in the global packet registry."""
+
         PacketRegistry.register(cls)
 
 
 class PacketRegistry:
+    """Global lookup table from packet IDs to packet classes."""
+
     _by_id: dict[PacketId, type[Packet]] = {}
 
     @classmethod
     def register(cls, packet_cls: type[Packet]) -> None:
+        """Register a packet class by its packet ID."""
+
         packet_id = packet_cls.packet_id()
         if packet_id in cls._by_id:
             raise ValueError(f"Duplicate packet id: {packet_id}")
@@ -44,24 +62,34 @@ class PacketRegistry:
 
     @classmethod
     def get(cls, packet_id: PacketId) -> type[Packet]:
+        """Return the packet class for a packet ID."""
+
         if packet_id not in cls._by_id:
             raise KeyError(f"Unknown packet id: {packet_id}")
         return cls._by_id[packet_id]
 
     @classmethod
     def is_registered(cls, packet_id: PacketId) -> bool:
+        """Return whether a packet ID has already been registered."""
+
         return packet_id in cls._by_id
 
 
 class PacketCodec:
+    """Encode and decode packets with a length-prefixed JSON envelope."""
+
     _HEADER_SIZE = 4
 
     @classmethod
     def send(cls, sock: socket.socket, packet: Packet) -> None:
+        """Serialize and send a packet on a socket."""
+
         sock.sendall(cls._encode(packet))
 
     @classmethod
     def recv(cls, sock: socket.socket) -> Packet:
+        """Read and decode the next packet from a socket."""
+
         header = cls._read_exact(sock, cls._HEADER_SIZE)
         payload_size = struct.unpack("!I", header)[0]
         body = cls._read_exact(sock, payload_size)
@@ -79,6 +107,8 @@ class PacketCodec:
 
     @classmethod
     def _encode(cls, packet: Packet) -> bytes:
+        """Convert a packet to its length-prefixed wire representation."""
+
         envelope = {
             "packet_id": packet.packet_id(),
             "version": packet.version(),
@@ -89,6 +119,8 @@ class PacketCodec:
 
     @staticmethod
     def _read_exact(sock: socket.socket, size: int) -> bytes:
+        """Read exactly the requested number of bytes from a socket."""
+
         chunks: list[bytes] = []
         remaining = size
 

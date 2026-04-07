@@ -1,3 +1,5 @@
+"""Central place for registering all packet types used by the protocol."""
+
 from network.configure_pressure_packet import ConfigurePressurePacket
 from network.disconnect_packet import DisconnectPacket
 from network.error_packet import ErrorPacket
@@ -15,6 +17,8 @@ from network.upgrade_tower_packet import UpgradeTowerPacket
 
 
 def register_packets() -> None:
+    """Register every packet type once before network traffic begins."""
+
     for packet_cls in (
         HelloPacket,
         JoinAcceptedPacket,

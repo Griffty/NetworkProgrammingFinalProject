@@ -1,3 +1,5 @@
+"""Server packet used to accept a join attempt."""
+
 from dataclasses import dataclass
 
 from network.packets import Packet, PacketId
@@ -5,6 +7,8 @@ from network.packets import Packet, PacketId
 
 @dataclass(slots=True)
 class JoinAcceptedPacket(Packet):
+    """Acceptance response for a successful lobby join."""
+
     message: str
 
     @classmethod

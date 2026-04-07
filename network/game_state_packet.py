@@ -1,3 +1,5 @@
+"""Server packet containing the latest serialized match snapshot."""
+
 from dataclasses import dataclass
 
 from network.packets import Packet, PacketId
@@ -5,6 +7,8 @@ from network.packets import Packet, PacketId
 
 @dataclass(slots=True)
 class GameStatePacket(Packet):
+    """Full state snapshot pushed from server to clients."""
+
     state: dict
 
     @classmethod

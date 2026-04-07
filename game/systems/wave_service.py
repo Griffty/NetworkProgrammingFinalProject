@@ -1,3 +1,5 @@
+"""Wave construction, spawning, and leak resolution."""
+
 from collections.abc import Callable
 
 from game.match_state import MatchState
@@ -16,6 +18,8 @@ from shared.models.waves import WaveDefinition, build_base_wave_definition
 
 
 class WaveService:
+    """Build player waves and advance them during combat."""
+
     def __init__(
         self,
         enemy_hp_growth_per_wave: float,
@@ -29,6 +33,8 @@ class WaveService:
         self._phase_service = phase_service
 
     def start_next_wave(self, state: MatchState) -> None:
+        """Create a new wave for each player and enter wave phase."""
+
         state.current_wave_number += 1
         wave_number = state.current_wave_number
         base_wave_definition = build_base_wave_definition(wave_number)
@@ -63,6 +69,8 @@ class WaveService:
         )
 
     def update_wave_phase(self, state: MatchState, delta_seconds: float) -> None:
+        """Advance enemy spawns, combat, movement, and leaks for one tick."""
+
         for player in state.alive_players():
             wave = player.current_wave
             board_layout = player.board_layout
@@ -94,6 +102,8 @@ class WaveService:
         base_wave_definition: WaveDefinition,
         pressure_plan: OutgoingPressureState,
     ) -> WaveState:
+        """Build the defending player's full wave from base + outgoing pressure."""
+
         wave_number = base_wave_definition.wave_number
         board_layout = state.players[player_id].board_layout
         wave = WaveState(
@@ -156,6 +166,8 @@ class WaveService:
         hp_multiplier: float,
         speed_multiplier: float,
     ) -> EnemyState:
+        """Create a fully scaled enemy instance for a wave."""
+
         definition = ENEMY_DEFINITIONS[enemy_kind]
         wave_hp_multiplier = 1.0 + (
             (wave_number - 1) * self._enemy_hp_growth_per_wave
@@ -178,6 +190,8 @@ class WaveService:
 
     @staticmethod
     def _spawn_queued_enemies(wave: WaveState, delta_seconds: float) -> None:
+        """Move queued enemies into the active list using spawn cooldown."""
+
         wave.spawn_cooldown_seconds -= delta_seconds
 
         while wave.queued_enemies and wave.spawn_cooldown_seconds <= 0.0:
@@ -191,6 +205,8 @@ class WaveService:
         defending_player: PlayerState,
         enemy: EnemyState,
     ) -> None:
+        """Apply leak damage and attacker leak rewards for one enemy."""
+
         defending_player.lives = max(0, defending_player.lives - enemy.leak_damage)
         defending_player.total_leaks_taken += enemy.leak_damage
         defending_player.current_wave.leaked_enemies += 1

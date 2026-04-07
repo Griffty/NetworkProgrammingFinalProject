@@ -1,3 +1,5 @@
+"""Tower registry used to look up shared tower definitions by type."""
+
 from game.towers.abstract_tower import AbstractTower
 from game.towers.minigun_tower import MinigunTower
 from game.towers.pulse_tower import PulseTower
@@ -17,4 +19,6 @@ _TOWER_INSTANCES = {
 
 
 def get_tower(tower_kind: TowerKind) -> AbstractTower:
+    """Return the shared tower definition instance for a tower kind."""
+
     return _TOWER_INSTANCES[tower_kind]
